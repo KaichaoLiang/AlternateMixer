@@ -1,8 +1,8 @@
 #-------------------------------------------------------------------------
-# file: fcos_query_generator.py
+# file: fcos_query_generator_withbox.py
 # author: kaichao liang
 # date: 2022.06.08
-# discription: the query generator of Fcos-Mixer, 
+# discription: the query generator of Fcos-Mixer with Fcos proposed box, 
 # most adapted from fcos_head.py of mmdetection
 #--------------------------------------------------------------------------
 import warnings
@@ -20,7 +20,7 @@ INF = 1e8
 
 
 @HEADS.register_module()
-class FcosQueryGenerator(AnchorFreeHead):
+class FcosQueryGeneratorClsFeat(AnchorFreeHead):
     def __init__(self,
                  num_classes,
                  in_channels,
@@ -92,6 +92,11 @@ class FcosQueryGenerator(AnchorFreeHead):
         '''
         
         outs = self(x)
+        cls_scores = outs[0]
+        bbox_preds = outs[1]
+        centernesses = outs[2]
+        cls_features = outs[3]
+        outs=outs[:3]
         if gt_labels is None:
             loss_inputs = outs + (gt_bboxes, img_metas)
         else:
@@ -100,10 +105,12 @@ class FcosQueryGenerator(AnchorFreeHead):
         
         # get k max-points, from fcos outputs
          
-        cls_scores = outs[0]
-        bbox_preds = outs[1]
-        centernesses = outs[2]
-        xyzr, init_content_features, imgs_whwh = self.fcos_feature_proposal(x, img_metas, cls_scores, bbox_preds, centernesses)
+        
+        if self.norm_on_bbox:
+            for s in range(len(self.strides)):
+                #bbox_preds[s] = bbox_preds[s].clamp(min=0)
+                bbox_preds[s]*=bbox_preds[s]*self.strides[s]
+        xyzr, init_content_features, imgs_whwh = self.fcos_feature_proposal(cls_features, img_metas, cls_scores, bbox_preds, centernesses)
 
         return losses,xyzr, init_content_features, imgs_whwh
        
@@ -114,7 +121,12 @@ class FcosQueryGenerator(AnchorFreeHead):
         cls_scores = outs[0]
         bbox_preds = outs[1]
         centernesses = outs[2]
-        xyzr, init_content_features, imgs_whwh = self.fcos_feature_proposal(x, img_metas, cls_scores, bbox_preds, centernesses)
+        cls_features = outs[3]
+        if self.norm_on_bbox:
+            for s in range(len(self.strides)):
+                #bbox_preds[s] = bbox_preds[s].clamp(min=0)
+                bbox_preds[s]*=bbox_preds[s]*self.strides[s]
+        xyzr, init_content_features, imgs_whwh = self.fcos_feature_proposal(cls_features, img_metas, cls_scores, bbox_preds, centernesses)
 
         return xyzr, init_content_features, imgs_whwh
 
@@ -167,11 +179,9 @@ class FcosQueryGenerator(AnchorFreeHead):
             # by F.relu(bbox_pred) when run with PyTorch 1.10. So replace
             # F.relu(bbox_pred) with bbox_pred.clamp(min=0)
             bbox_pred = bbox_pred.clamp(min=0)
-            if not self.training:
-                bbox_pred *= stride
         else:
             bbox_pred = bbox_pred.exp()
-        return cls_score, bbox_pred, centerness
+        return cls_score, bbox_pred, centerness,cls_feat
 
     @force_fp32(apply_to=('cls_scores', 'bbox_preds', 'centernesses'))
     def loss(self,
@@ -516,42 +526,49 @@ class FcosQueryGenerator(AnchorFreeHead):
         sort_score, sort_id = torch.sort(flatten_totalscore,dim=-1,descending=True) 
         select_features = []
         select_points = []
-
+        select_bboxes = []
         for id in range(num_imgs):
             ind_select = sort_id[id,:self.maxk_num]
             flatten_feature = flatten_features[id,:,:]
             flatten_point = flatten_points[id,:,:]
+            flatten_bbox_pred = flatten_bbox_preds[id,:,:]
             select_point = flatten_point[ind_select].clone().view(1,self.maxk_num,2)
-            
+            select_bbox = flatten_bbox_pred[ind_select].clone().view(1,self.maxk_num,4)
             #select_point = select_point.flip(2) #point height/width
             #normalize to image size
-            
-            select_point[:,:,0]/=batch_w
-            select_point[:,:,1]/=batch_h
-            select_point[select_point<0.02]=0.02
-            select_point[select_point>0.98]=0.98
             select_feature = flatten_feature[ind_select].clone().view(1,self.maxk_num,x[0].size(1))
 
             select_points.append(select_point)
             select_features.append(select_feature)
+            select_bboxes.append(select_bbox)
         
         select_points = torch.cat(select_points,dim=0)
         select_features = torch.cat(select_features,dim=0)
-        select_w = torch.min(select_points[:,:,0],1-select_points[:,:,0]).unsqueeze(2)*2
-        select_h = torch.min(select_points[:,:,1],1-select_points[:,:,1]).unsqueeze(2)*2
-        select_pos_embed = torch.cat([select_points,select_w,select_h],dim=2)
+        select_bboxes = torch.cat(select_bboxes,dim=0)
+        
+        xs = select_points[:,:,0]
+        ys = select_points[:,:,1]
+        
+        x1 = xs - select_bboxes[...,0]
+        x1[x1<0]=0
+        x1[x1>batch_w-2]=batch_w-2
+        y1 = ys - select_bboxes[...,1]
+        y1[y1<0]=0
+        y1[y1>batch_h-2]=batch_h-2
+        x2 = xs + select_bboxes[...,2]
+        x2 = torch.max(x1+1,x2)
+        x2[x2>batch_w-1]=batch_w-1
+        y2 = ys + select_bboxes[...,3]
+        y2 = torch.max(y1+1,y2)
+        y2[y2>batch_h-1]=batch_h-1
+        proposals = torch.stack((x1, y1, x2, y2), -1)
 
-        proposals = self.bbox_cxcywh_to_xyxy(select_pos_embed)
-        proposals=torch.ones(self.maxk_num,4,dtype=torch.float32).cuda()
-        proposals[:,:2]=0
         imgs_whwh = []
         for meta in img_metas:
             h, w, _ = meta['img_shape']
             imgs_whwh.append(x[0].new_tensor([[w, h, w, h]]))
         imgs_whwh = torch.cat(imgs_whwh, dim=0)
         imgs_whwh = imgs_whwh[:, None, :]
-
-        proposals = proposals * imgs_whwh
 
         xy = 0.5 * (proposals[..., 0:2] + proposals[..., 2:4])
         wh = proposals[..., 2:4] - proposals[..., 0:2]

@@ -40,7 +40,7 @@ from .yolo_head import YOLOV3Head
 from .yolof_head import YOLOFHead
 from .yolox_head import YOLOXHead
 from .query_generator import InitialQueryGenerator
-from .fcos_query_generator import FcosQueryGenerator
+from .fcos_query_generator_clsfeat import FcosQueryGeneratorClsFeat
 from .fcos_query_generator_withbox import FcosQueryGeneratorWithBox
 from .fcos_query_generator_mixquery import FcosQueryGeneratorMixQuery
 __all__ = [
@@ -55,6 +55,6 @@ __all__ = [
     'AutoAssignHead', 'DETRHead', 'YOLOFHead', 'DeformableDETRHead',
     'SOLOHead', 'DecoupledSOLOHead', 'CenterNetHead', 'YOLOXHead',
     'DecoupledSOLOLightHead', 'LADHead', 'TOODHead', 'MaskFormerHead',
-    'Mask2FormerHead','InitialQueryGenerator','FcosQueryGenerator','FcosQueryGeneratorWithBox',
-    'FcosQueryGeneratorMixQuery'
+    'Mask2FormerHead','InitialQueryGenerator','FcosQueryGeneratorWithBox',
+    'FcosQueryGeneratorMixQuery','FcosQueryGeneratorClsFeat'
 ]
