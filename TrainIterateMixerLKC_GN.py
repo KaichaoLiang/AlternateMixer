@@ -5,24 +5,37 @@ from mmdet.apis import set_random_seed
 import mmcv
 import os.path as osp
 
-cfg = mmcv.Config.fromfile('configs/yolo/yolov3_lkc_coco.py')
+cfg = mmcv.Config.fromfile('configs/adamixer/iteratemixer_r50_1x_coco.py')
+
 # Change the evaluation metric since we use customized dataset.
 cfg.evaluation.metric = ['bbox']
 # We can set the evaluation interval to reduce the evaluation times
 cfg.evaluation.interval = 1
 # We can set the checkpoint saving interval to reduce the storage cost
-cfg.checkpoint_config.interval = 1
-
+cfg.checkpoint_config.interval = 6
+ 
 # Set seed thus the results are more reproducible
 cfg.seed = 0
 set_random_seed(0, deterministic=False)
 cfg.gpu_ids = range(1)
 cfg.device='cuda'
+cfg.work_dir='Train_IterateMixer_Residual_GN'
+cfg.model.roi_head.feat_norm = 'GN'
+
+cfg.data_root = '/home/lkc/Databases/coco/'
+cfg.data.train.ann_file = cfg.data_root + 'annotations/instances_train2017.json',
+cfg.data.train.img_prefix = cfg.data_root + 'train2017/'
+cfg.data.val.ann_file = cfg.data_root + 'annotations/instances_val2017.json',
+cfg.data.val.img_prefix = cfg.data_root + 'val2017/'
+cfg.data.test.ann_file = cfg.data_root + 'annotations/instances_val2017.json',
+cfg.data.test.img_prefix = cfg.data_root + 'val2017/'
 
 # We can also use tensorboard to log the training process
+cfg.log_config.interval=40
 cfg.log_config.hooks = [
     dict(type='TextLoggerHook'),
-    dict(type='TensorboardLoggerHook')]
+    #dict(type='TensorboardLoggerHook')
+    ]
 
 # Build dataset
 datasets = [build_dataset(cfg.data.train)]
