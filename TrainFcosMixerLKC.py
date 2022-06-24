@@ -5,7 +5,7 @@ from mmdet.apis import set_random_seed
 import mmcv
 import os.path as osp
 
-cfg = mmcv.Config.fromfile('configs/fcos_mixer/fcosmixer_r50_1x_coco_improvefcoshead_clsfeat.py')
+cfg = mmcv.Config.fromfile('configs/fcos_mixer/fcosconstraint_adamixer_r50_1x_coco.py')
 
 # Change the evaluation metric since we use customized dataset.
 cfg.evaluation.metric = ['bbox']
@@ -19,7 +19,7 @@ cfg.seed = 0
 set_random_seed(0, deterministic=False)
 cfg.gpu_ids = range(1)
 cfg.device='cuda'
-cfg.work_dir='Train_FcosMixer_BestFcosConfig_ClsFeat'
+cfg.work_dir='Train_FcosConstraint_AdaMixer'
 
 cfg.data_root = '/home/lkc20/DetectionTransformer/Coco/'
 cfg.data.train.ann_file = cfg.data_root + 'annotations/instances_train2017.json',
