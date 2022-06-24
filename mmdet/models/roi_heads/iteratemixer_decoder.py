@@ -161,15 +161,9 @@ class IterateMixerDecoder(CascadeRoIHead):
             query_seed = query_content
             if self.query_detach:
                 query_seed = query_seed.detach()
-<<<<<<< HEAD
-            conv_kernel = self.conv_generate_stages[stage*SCALE+s](query_seed.view(batchsize*num_query,self.content_dim))
-            conv_kernel = conv_kernel.view(batchsize,num_query,-1)
-            conv_kernel = torch.sum(conv_kernel, dim=1)
-=======
             query_seed = torch.sum(query_seed, dim=1)
 
             conv_kernel = self.conv_generate_stages[stage*SCALE+s](query_seed.view(batchsize,self.content_dim))
->>>>>>> 9d6c644bc54a9c2b38a7f4e0b03838001df4960f
             conv_kernel = conv_kernel.view(batchsize*self.content_dim,1,3,3)
             img_batch = img_batch.view(1, batchsize*self.content_dim, h, w)
             img_batch = F.conv2d(img_batch,conv_kernel,stride=1,padding=1, groups=batchsize*self.content_dim)
