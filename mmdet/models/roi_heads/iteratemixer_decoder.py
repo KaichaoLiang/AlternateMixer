@@ -6,6 +6,7 @@
 # most adapted from adamixer_decoder.py of mmdetection
 #--------------------------------------------------------------------------
 
+import queue
 from pandas import concat
 import torch
 import torch.nn.functional as F
@@ -20,6 +21,7 @@ from .cascade_roi_head import CascadeRoIHead
 from mmcv.cnn import (bias_init_with_prob, build_activation_layer,
                       build_norm_layer)
 import os
+import time
 DEBUG = 'DEBUG' in os.environ
 
 
@@ -89,14 +91,14 @@ class IterateMixerDecoder(CascadeRoIHead):
                 if self.feat_norm=='BN2d':
                     self.conv_norm_stages.append(build_norm_layer(dict(type=self.feat_norm), self.content_dim)[1]) 
                 elif self.feat_norm=='GN':
-                    self.conv_norm_stages.append(build_norm_layer(dict(type=self.feat_norm), 8,self.content_dim)[1]) 
+                    self.conv_norm_stages.append(build_norm_layer(dict(type=self.feat_norm,num_groups=8),self.content_dim)[1]) 
                 self.conv_activation_stages.append(build_activation_layer(dict(type='ReLU', inplace=True)))
 
                 self.mixing_generate_stages.append(Linear(self.content_dim, 1*1*self.content_dim*self.content_dim))
                 if self.feat_norm=='BN2d':
-                    self.conv_norm_stages.append(build_norm_layer(dict(type=self.feat_norm), self.content_dim)[1]) 
+                    self.mixing_norm_stages.append(build_norm_layer(dict(type=self.feat_norm), self.content_dim)[1]) 
                 elif self.feat_norm=='GN':
-                    self.conv_norm_stages.append(build_norm_layer(dict(type=self.feat_norm), 8,self.content_dim)[1])  
+                    self.mixing_norm_stages.append(build_norm_layer(dict(type=self.feat_norm, num_groups=8),self.content_dim)[1])  
                 self.mixing_activation_stages.append(build_activation_layer(dict(type='ReLU', inplace=True)))
             
     def init_weights(self):
@@ -108,13 +110,13 @@ class IterateMixerDecoder(CascadeRoIHead):
                 module.reset_parameters()
                 nn.init.xavier_uniform_(module.weight)
                 nn.init.zeros_(module.bias)
-                module.cuda()
+                #module.cuda()
 
                 module = self.mixing_generate_stages[stage*SCALE+s]
                 module.reset_parameters()
                 nn.init.xavier_uniform_(module.weight)
                 nn.init.zeros_(module.bias)
-                module.cuda()
+                #module.cuda()
 
     def _bbox_forward(self, stage, img_feat, query_xyzr, query_content, img_metas):
         num_imgs = len(img_metas)
@@ -158,10 +160,10 @@ class IterateMixerDecoder(CascadeRoIHead):
             w=img_batch.size(3)
             query_seed = query_content
             if self.query_detach:
-                query_seed.detach()
-            conv_kernel = self.conv_generate_stages[stage*SCALE+s](query_seed.view(batchsize*num_query,self.content_dim))
-            conv_kernel = conv_kernel.view(batchsize,num_query,-1)
-            conv_kernel = torch.sum(conv_kernel, dim=1)
+                query_seed = query_seed.detach()
+            query_seed = torch.sum(query_seed, dim=1)
+
+            conv_kernel = self.conv_generate_stages[stage*SCALE+s](query_seed.view(batchsize,self.content_dim))
             conv_kernel = conv_kernel.view(batchsize*self.content_dim,1,3,3)
             img_batch = img_batch.view(1, batchsize*self.content_dim, h, w)
             img_batch = F.conv2d(img_batch,conv_kernel,stride=1,padding=1, groups=batchsize*self.content_dim)
@@ -169,9 +171,7 @@ class IterateMixerDecoder(CascadeRoIHead):
             img_batch = self.conv_norm_stages[stage*SCALE+s](img_batch)
             img_batch = self.conv_activation_stages[stage*SCALE+s](img_batch)
 
-            mixing_kernel = self.mixing_generate_stages[stage*SCALE+s](query_seed.view(batchsize*num_query,self.content_dim))
-            mixing_kernel = mixing_kernel.view(batchsize,num_query,-1)
-            mixing_kernel = torch.sum(mixing_kernel, dim=1)
+            mixing_kernel = self.mixing_generate_stages[stage*SCALE+s](query_seed.view(batchsize,self.content_dim))
             mixing_kernel = mixing_kernel.view(batchsize*self.content_dim,self.content_dim,1,1)
             img_batch = img_batch.view(1, batchsize*self.content_dim, h, w)
             img_batch = F.conv2d(img_batch,mixing_kernel,stride=1,padding=0, groups=batchsize)

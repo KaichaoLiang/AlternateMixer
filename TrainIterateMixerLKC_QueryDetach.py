@@ -19,9 +19,10 @@ cfg.seed = 0
 set_random_seed(0, deterministic=False)
 cfg.gpu_ids = range(1)
 cfg.device='cuda'
-cfg.work_dir='Train_IterateMixer_Residual'
+cfg.work_dir='Train_IterateMixer_Residual_querydetach'
+cfg.model.roi_head.query_detach = True
 
-cfg.data_root = '/home/lkc20/DetectionTransformer/Coco/'
+cfg.data_root = '/home/lkc/Databases/coco/'
 cfg.data.train.ann_file = cfg.data_root + 'annotations/instances_train2017.json',
 cfg.data.train.img_prefix = cfg.data_root + 'train2017/'
 cfg.data.val.ann_file = cfg.data_root + 'annotations/instances_val2017.json',
