@@ -112,6 +112,8 @@ model = dict(
         num_stages=num_stages,
         stage_loss_weights=[1] * num_stages,
         content_dim=QUERY_DIM,
+        feat_norm = 'BN2d',
+        query_detach = False,
         bbox_head=[
             dict(
                 type='AdaMixerDecoderStage',
