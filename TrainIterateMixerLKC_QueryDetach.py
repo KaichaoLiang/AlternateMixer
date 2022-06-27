@@ -12,7 +12,7 @@ cfg.evaluation.metric = ['bbox']
 # We can set the evaluation interval to reduce the evaluation times
 cfg.evaluation.interval = 1
 # We can set the checkpoint saving interval to reduce the storage cost
-cfg.checkpoint_config.interval = 6
+cfg.checkpoint_config.interval = 14
  
 # Set seed thus the results are more reproducible
 cfg.seed = 0
