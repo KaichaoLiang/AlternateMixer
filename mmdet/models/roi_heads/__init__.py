@@ -25,6 +25,7 @@ from .trident_roi_head import TridentRoIHead
 from .adamixer_decoder import AdaMixerDecoder
 from .iteratemixer_decoder import IterateMixerDecoder
 from .iteratemixer_decoder_adapt import IterateMixerDecoderAdapt
+from .iteratemixer_decoder_withfcos import IterateMixerDecoderFcos
 
 __all__ = [
     'BaseRoIHead', 'CascadeRoIHead', 'DoubleHeadRoIHead', 'MaskScoringRoIHead',
@@ -37,5 +38,5 @@ __all__ = [
     'CoarseMaskHead', 'DynamicRoIHead', 'SparseRoIHead', 'TridentRoIHead',
     'SCNetRoIHead', 'SCNetMaskHead', 'SCNetSemanticHead', 'SCNetBBoxHead',
     'FeatureRelayHead', 'GlobalContextHead', 'AdaMixerDecoder','IterateMixerDecoder'
-    ,'IterateMixerDecoder'
+    ,'IterateMixerDecoder','IterateMixerDecoderFcos'
 ]
