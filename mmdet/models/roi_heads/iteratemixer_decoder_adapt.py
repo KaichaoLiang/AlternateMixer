@@ -93,7 +93,7 @@ class IterateMixerDecoderAdapt(CascadeRoIHead):
             for s in range(SCALE):
                 self.query_projection_stages.append(Linear(self.content_dim, self.content_dim))
                 self.query_norm_stages.append(build_norm_layer(dict(type='LN'), self.content_dim)[1])
-                self.query_activate_stages.append(build_activation_layer(dict(type='LeakyReLU,', inplace=True)))
+                self.query_activate_stages.append(nn.LeakyReLU(inplace=True))
                 
                 self.conv_generate_stages.append(Linear(self.content_dim, 3*3*self.content_dim))
                 if self.feat_norm=='BN2d':

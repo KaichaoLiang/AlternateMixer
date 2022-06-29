@@ -19,7 +19,7 @@ from mmdet.core import bbox2result, bbox2roi, bbox_xyxy_to_cxcywh
 from mmdet.core.bbox.samplers import PseudoSampler
 from ..builder import HEADS
 from .cascade_roi_head import CascadeRoIHead
-from ..dense_heads import fcos_heads
+from ..dense_heads import fcos_head
 from mmcv.cnn import (bias_init_with_prob, build_activation_layer,
                       build_norm_layer)
 import os
@@ -73,7 +73,7 @@ class IterateMixerDecoderFcos(CascadeRoIHead):
             init_cfg=init_cfg)
         self._init_layers()
         self.from_fcos = from_fcos
-        self.fcos_head = fcos_heads(**fcos_config)
+        self.fcos_head = fcos_head(**fcos_config)
         #self.init_weights()
         # train_cfg would be None when run the test.py
         if train_cfg is not None:
@@ -96,9 +96,6 @@ class IterateMixerDecoderFcos(CascadeRoIHead):
         for stage in range(self.num_stages):
 
             for s in range(SCALE):
-                self.query_projection_stages.append(Linear(self.content_dim, self.content_dim))
-                self.query_activate_stages.append(build_activation_layer(dict(type='LeakyReLU,', inplace=True)))
-                self.conv_generate_stages.append(Linear(self.content_dim, 3*3*self.content_dim))
                 if self.feat_norm=='BN2d':
                     self.conv_norm_stages.append(build_norm_layer(dict(type=self.feat_norm), self.content_dim)[1]) 
                 elif self.feat_norm=='GN':
@@ -174,9 +171,6 @@ class IterateMixerDecoderFcos(CascadeRoIHead):
             query_seed = query_content
             if self.query_detach:
                 query_seed = query_seed.detach()
-            
-            query_seed = self.query_projection_stages[stage*SCALE+s](query_seed)
-            query_seed = self.query_activate_stages[stage*SCALE+s](query_seed)
             query_seed = torch.sum(query_seed, dim=1)
 
             conv_kernel = self.conv_generate_stages[stage*SCALE+s](query_seed.view(batchsize,self.content_dim))
