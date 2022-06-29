@@ -41,7 +41,7 @@ class IterateMixerDecoderFcos(CascadeRoIHead):
                  test_cfg=None,
                  pretrained=None,
                  query_detach=False,
-                 feat_norm='BN2d',
+                 feat_norm='GN',
                  fcos_config=None,
                  from_fcos = False,
                  init_cfg=None):
