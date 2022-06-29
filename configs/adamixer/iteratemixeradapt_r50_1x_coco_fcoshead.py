@@ -144,7 +144,8 @@ model = dict(
                     clip_border=False,
                     target_means=[0., 0., 0., 0.],
                     target_stds=[0.5, 0.5, 1., 1.])) for stage_idx in range(num_stages)
-        ]),
+        ],
+        ),
     # training and testing settings
     train_cfg=dict(
         rpn=None,

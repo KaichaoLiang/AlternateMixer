@@ -39,7 +39,7 @@ class IterateMixerDecoderAdapt(CascadeRoIHead):
                  test_cfg=None,
                  pretrained=None,
                  query_detach=False,
-                 feat_norm='BN2d',
+                 feat_norm='GN',
                  init_cfg=None):
         assert bbox_head is not None
         assert len(stage_loss_weights) == num_stages
@@ -77,6 +77,7 @@ class IterateMixerDecoderAdapt(CascadeRoIHead):
     def _init_layers(self):
         """Initialize layers of the head."""
         self.query_projection_stages = nn.ModuleList()
+        self.query_norm_stages = nn.ModuleList()
         self.query_activate_stages = nn.ModuleList()
 
         self.conv_generate_stages = nn.ModuleList()
@@ -91,7 +92,9 @@ class IterateMixerDecoderAdapt(CascadeRoIHead):
 
             for s in range(SCALE):
                 self.query_projection_stages.append(Linear(self.content_dim, self.content_dim))
+                self.query_norm_stages.append(build_norm_layer(dict(type='LN'), self.content_dim)[1])
                 self.query_activate_stages.append(build_activation_layer(dict(type='LeakyReLU,', inplace=True)))
+                
                 self.conv_generate_stages.append(Linear(self.content_dim, 3*3*self.content_dim))
                 if self.feat_norm=='BN2d':
                     self.conv_norm_stages.append(build_norm_layer(dict(type=self.feat_norm), self.content_dim)[1]) 
@@ -168,6 +171,7 @@ class IterateMixerDecoderAdapt(CascadeRoIHead):
                 query_seed = query_seed.detach()
             
             query_seed = self.query_projection_stages[stage*SCALE+s](query_seed)
+            query_seed = self.query_norm_stages[stage*SCALE+s](query_seed)
             query_seed = self.query_activate_stages[stage*SCALE+s](query_seed)
             query_seed = torch.sum(query_seed, dim=1)
 
