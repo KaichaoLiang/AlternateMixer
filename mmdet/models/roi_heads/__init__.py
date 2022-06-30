@@ -26,7 +26,7 @@ from .adamixer_decoder import AdaMixerDecoder
 from .iteratemixer_decoder import IterateMixerDecoder
 from .iteratemixer_decoder_adapt import IterateMixerDecoderAdapt
 from .iteratemixer_decoder_withfcos import IterateMixerDecoderFcos
-
+from .iteratemixer_decoder_selfconv import IterateMixerDecoderSelfConv
 __all__ = [
     'BaseRoIHead', 'CascadeRoIHead', 'DoubleHeadRoIHead', 'MaskScoringRoIHead',
     'HybridTaskCascadeRoIHead', 'GridRoIHead', 'ResLayer', 'BBoxHead',
@@ -38,5 +38,5 @@ __all__ = [
     'CoarseMaskHead', 'DynamicRoIHead', 'SparseRoIHead', 'TridentRoIHead',
     'SCNetRoIHead', 'SCNetMaskHead', 'SCNetSemanticHead', 'SCNetBBoxHead',
     'FeatureRelayHead', 'GlobalContextHead', 'AdaMixerDecoder','IterateMixerDecoder'
-    ,'IterateMixerDecoder','IterateMixerDecoderFcos'
+    ,'IterateMixerDecoder','IterateMixerDecoderFcos','IterateMixerDecoderSelfConv'
 ]
