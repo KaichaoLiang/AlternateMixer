@@ -5,7 +5,7 @@ def __get_debug():
 
 debug = __get_debug()
 
-log_interval = 100
+log_interval = 10
 
 
 _base_ = [
@@ -47,8 +47,8 @@ test_pipeline = [
         ])
 ]
 data = dict(
-    samples_per_gpu=8,
-    workers_per_gpu=8,
+    samples_per_gpu=4,
+    workers_per_gpu=4,
     train=dict(
         type=dataset_type,
         ann_file=data_root + 'annotations/instances_train2017.json',
