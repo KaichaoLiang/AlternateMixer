@@ -19,13 +19,15 @@ def ReadLogs(filename:string):
                 break
             logdict = json.loads(logline)
             #print(logdict)
+            if('mode' not in logdict.keys()):
+                continue
             if(logdict['mode'] == 'val'):
-                mAP.append(logdict['0_bbox_mAP'])
-                mAP50.append(logdict['0_bbox_mAP_50'])
-                mAP75.append(logdict['0_bbox_mAP_75'])
-                mAP_s.append(logdict['0_bbox_mAP_s'])
-                mAP_m.append(logdict['0_bbox_mAP_m'])
-                mAP_l.append(logdict['0_bbox_mAP_l'])
+                mAP.append(logdict['bbox_mAP'])
+                mAP50.append(logdict['bbox_mAP_50'])
+                mAP75.append(logdict['bbox_mAP_75'])
+                mAP_s.append(logdict['bbox_mAP_s'])
+                mAP_m.append(logdict['bbox_mAP_m'])
+                mAP_l.append(logdict['bbox_mAP_l'])
                 epoches.append(logdict['epoch'])
     logData = dict()
     logData['epoches'] = epoches
@@ -70,7 +72,7 @@ if __name__ == '__main__':
     plt.plot(logData['epoches'], logData['mAP_l'])
     plt.title('mAP_l')
 
-    plt.show()
+    #plt.show()
     print('epoch',logData['epoches'])
     print('mAP',logData['mAP'])
     print('mAP50',logData['mAP50'])

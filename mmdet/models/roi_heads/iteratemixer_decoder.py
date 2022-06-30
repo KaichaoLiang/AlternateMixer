@@ -39,7 +39,7 @@ class IterateMixerDecoder(CascadeRoIHead):
                  test_cfg=None,
                  pretrained=None,
                  query_detach=False,
-                 feat_norm='BN2d',
+                 feat_norm='GN',
                  init_cfg=None):
         assert bbox_head is not None
         assert len(stage_loss_weights) == num_stages
