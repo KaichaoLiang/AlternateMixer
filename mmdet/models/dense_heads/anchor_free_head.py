@@ -51,6 +51,8 @@ class AnchorFreeHead(BaseDenseHead, BBoxTestMixin):
                  strides=(4, 8, 16, 32, 64),
                  dcn_on_last_conv=False,
                  conv_bias='auto',
+                 cls_stack_conv=True,
+                 reg_stack_conv=True,
                  loss_cls=dict(
                      type='FocalLoss',
                      use_sigmoid=True,
@@ -101,7 +103,8 @@ class AnchorFreeHead(BaseDenseHead, BBoxTestMixin):
         self.conv_cfg = conv_cfg
         self.norm_cfg = norm_cfg
         self.fp16_enabled = False
-
+        self.cls_stack_conv = cls_stack_conv
+        self.reg_stack_conv = reg_stack_conv
         self._init_layers()
 
     def _init_layers(self):
@@ -112,43 +115,50 @@ class AnchorFreeHead(BaseDenseHead, BBoxTestMixin):
 
     def _init_cls_convs(self):
         """Initialize classification conv layers of the head."""
-        self.cls_convs = nn.ModuleList()
-        for i in range(self.stacked_convs):
-            chn = self.in_channels if i == 0 else self.feat_channels
-            if self.dcn_on_last_conv and i == self.stacked_convs - 1:
-                conv_cfg = dict(type='DCNv2')
-            else:
-                conv_cfg = self.conv_cfg
-            self.cls_convs.append(
-                ConvModule(
-                    chn,
-                    self.feat_channels,
-                    3,
-                    stride=1,
-                    padding=1,
-                    conv_cfg=conv_cfg,
-                    norm_cfg=self.norm_cfg,
-                    bias=self.conv_bias))
+        if(self.cls_stack_conv):
+            self.cls_convs = nn.ModuleList()
+            for i in range(self.stacked_convs):
+                chn = self.in_channels if i == 0 else self.feat_channels
+                if self.dcn_on_last_conv and i == self.stacked_convs - 1:
+                    conv_cfg = dict(type='DCNv2')
+                else:
+                    conv_cfg = self.conv_cfg
+                self.cls_convs.append(
+                    ConvModule(
+                        chn,
+                        self.feat_channels,
+                        3,
+                        stride=1,
+                        padding=1,
+                        conv_cfg=conv_cfg,
+                        norm_cfg=self.norm_cfg,
+                        bias=self.conv_bias))
+        else:
+            print('no stack convs for classification')
+        
 
     def _init_reg_convs(self):
         """Initialize bbox regression conv layers of the head."""
-        self.reg_convs = nn.ModuleList()
-        for i in range(self.stacked_convs):
-            chn = self.in_channels if i == 0 else self.feat_channels
-            if self.dcn_on_last_conv and i == self.stacked_convs - 1:
-                conv_cfg = dict(type='DCNv2')
+        if(self.reg_stack_conv):
+            self.reg_convs = nn.ModuleList()
+            for i in range(self.stacked_convs):
+                chn = self.in_channels if i == 0 else self.feat_channels
+                if self.dcn_on_last_conv and i == self.stacked_convs - 1:
+                    conv_cfg = dict(type='DCNv2')
+                else:
+                    conv_cfg = self.conv_cfg
+                self.reg_convs.append(
+                    ConvModule(
+                        chn,
+                        self.feat_channels,
+                        3,
+                        stride=1,
+                        padding=1,
+                        conv_cfg=conv_cfg,
+                        norm_cfg=self.norm_cfg,
+                        bias=self.conv_bias))
             else:
-                conv_cfg = self.conv_cfg
-            self.reg_convs.append(
-                ConvModule(
-                    chn,
-                    self.feat_channels,
-                    3,
-                    stride=1,
-                    padding=1,
-                    conv_cfg=conv_cfg,
-                    norm_cfg=self.norm_cfg,
-                    bias=self.conv_bias))
+                print('no stack convs for regression')
 
     def _init_predictor(self):
         """Initialize predictor layers of the head."""
@@ -226,12 +236,14 @@ class AnchorFreeHead(BaseDenseHead, BBoxTestMixin):
         cls_feat = x
         reg_feat = x
 
-        for cls_layer in self.cls_convs:
-            cls_feat = cls_layer(cls_feat)
+        if self.cls_stack_conv:
+            for cls_layer in self.cls_convs:
+                cls_feat = cls_layer(cls_feat)
         cls_score = self.conv_cls(cls_feat)
 
-        for reg_layer in self.reg_convs:
-            reg_feat = reg_layer(reg_feat)
+        if self.reg_stack_conv:
+            for reg_layer in self.reg_convs:
+                reg_feat = reg_layer(reg_feat)
         bbox_pred = self.conv_reg(reg_feat)
         return cls_score, bbox_pred, cls_feat, reg_feat
 

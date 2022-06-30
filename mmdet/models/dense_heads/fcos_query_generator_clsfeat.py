@@ -31,6 +31,8 @@ class FcosQueryGeneratorClsFeat(AnchorFreeHead):
                  norm_on_bbox=False,
                  centerness_on_reg=False,
                  maxk_num = 100,
+                 cls_stack_conv=True,
+                 reg_stack_conv=True,
                  loss_cls=dict(
                      type='FocalLoss',
                      use_sigmoid=True,
@@ -62,6 +64,8 @@ class FcosQueryGeneratorClsFeat(AnchorFreeHead):
         super().__init__(
             num_classes,
             in_channels,
+            cls_stack_conv=cls_stack_conv,
+            reg_stack_conv=reg_stack_conv,
             loss_cls=loss_cls,
             loss_bbox=loss_bbox,
             norm_cfg=norm_cfg,

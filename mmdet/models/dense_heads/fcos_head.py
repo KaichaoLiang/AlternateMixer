@@ -66,6 +66,8 @@ class FCOSHead(AnchorFreeHead):
                  center_sample_radius=1.5,
                  norm_on_bbox=False,
                  centerness_on_reg=False,
+                 cls_stack_conv=True,
+                 reg_stack_conv=True,
                  loss_cls=dict(
                      type='FocalLoss',
                      use_sigmoid=True,
@@ -96,6 +98,8 @@ class FCOSHead(AnchorFreeHead):
         super().__init__(
             num_classes,
             in_channels,
+            cls_stack_conv=cls_stack_conv,
+            reg_stack_conv=reg_stack_conv,
             loss_cls=loss_cls,
             loss_bbox=loss_bbox,
             norm_cfg=norm_cfg,
