@@ -5,7 +5,7 @@ def __get_debug():
 
 debug = __get_debug()
 
-log_interval = 10
+log_interval = 100
 
 
 _base_ = [
