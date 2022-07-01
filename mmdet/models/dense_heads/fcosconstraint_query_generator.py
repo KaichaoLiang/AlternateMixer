@@ -150,9 +150,7 @@ class FcosConstraintQueryGenerator(AnchorFreeHead):
         losses = self.loss(*loss_inputs, gt_bboxes_ignore=gt_bboxes_ignore)
         
 
-        #xyzr, init_content_features, imgs_whwh = self.fcos_feature_proposal(x, img_metas, cls_scores, bbox_preds, centernesses)
         xyzr, init_content_features, imgs_whwh = self._decode_init_proposals(x, img_metas)
-        init_content_features = torch.cat([init_content_features, init_content_features],dim =-2)
         return losses,xyzr, init_content_features, imgs_whwh
        
     
