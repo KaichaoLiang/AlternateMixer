@@ -26,7 +26,7 @@ DEBUG = 'DEBUG' in os.environ
 
 
 @HEADS.register_module()
-class IterateMixerDecoderSelfConv(CascadeRoIHead):
+class IterateMixerDecoderActivate(CascadeRoIHead):
     _DEBUG = -1
 
     def __init__(self,
@@ -50,7 +50,7 @@ class IterateMixerDecoderSelfConv(CascadeRoIHead):
         self.query_detach = query_detach
         assert feat_norm in ['GN','BN2d'], "not supported normalization"
         self.feat_norm = feat_norm
-        super(IterateMixerDecoderSelfConv, self).__init__(
+        super(IterateMixerDecoderActivate, self).__init__(
             num_stages,
             stage_loss_weights,
             bbox_roi_extractor=dict(
@@ -76,19 +76,51 @@ class IterateMixerDecoderSelfConv(CascadeRoIHead):
     
     def _init_layers(self):
         """Initialize layers of the head."""
-        self.conv_stages = nn.ModuleList()
+        self.query_projection_stages = nn.ModuleList()
+
+        self.conv_generate_stages = nn.ModuleList()
         self.conv_norm_stages = nn.ModuleList()
         self.conv_activation_stages = nn.ModuleList()
 
+        self.mixing_generate_stages = nn.ModuleList()
+        self.mixing_norm_stages = nn.ModuleList()
+        self.mixing_activation_stages = nn.ModuleList()
         SCALE = len(self.featmap_strides)
         for stage in range(self.num_stages):
+
             for s in range(SCALE):
-                self.conv_stages.append(nn.Conv2d(in_channels=self.content_dim, out_channels=self.content_dim, kernel_size = 3, stride=1, padding=1))
+                self.query_projection_stages.append(Linear(self.content_dim, self.content_dim))
+                
+                self.conv_generate_stages.append(Linear(self.content_dim, 3*3*self.content_dim))
                 if self.feat_norm=='BN2d':
                     self.conv_norm_stages.append(build_norm_layer(dict(type=self.feat_norm), self.content_dim)[1]) 
                 elif self.feat_norm=='GN':
                     self.conv_norm_stages.append(build_norm_layer(dict(type=self.feat_norm,num_groups=8),self.content_dim)[1]) 
                 self.conv_activation_stages.append(build_activation_layer(dict(type='ReLU', inplace=True)))
+
+                self.mixing_generate_stages.append(Linear(self.content_dim, 1*1*self.content_dim*self.content_dim))
+                if self.feat_norm=='BN2d':
+                    self.mixing_norm_stages.append(build_norm_layer(dict(type=self.feat_norm), self.content_dim)[1]) 
+                elif self.feat_norm=='GN':
+                    self.mixing_norm_stages.append(build_norm_layer(dict(type=self.feat_norm, num_groups=8),self.content_dim)[1])  
+                self.mixing_activation_stages.append(build_activation_layer(dict(type='ReLU', inplace=True)))
+            
+    def init_weights(self):
+        super().init_weights()
+        SCALE = len(self.featmap_strides)
+        for stage in range(self.num_stages):
+            for s in range(SCALE):
+                module = self.conv_generate_stages[stage*SCALE+s]
+                module.reset_parameters()
+                nn.init.xavier_uniform_(module.weight)
+                nn.init.zeros_(module.bias)
+                #module.cuda()
+
+                module = self.mixing_generate_stages[stage*SCALE+s]
+                module.reset_parameters()
+                nn.init.xavier_uniform_(module.weight)
+                nn.init.zeros_(module.bias)
+                #module.cuda()
 
     def _bbox_forward(self, stage, img_feat, query_xyzr, query_content, img_metas):
         num_imgs = len(img_metas)
@@ -116,21 +148,47 @@ class IterateMixerDecoderSelfConv(CascadeRoIHead):
         if DEBUG:
             with torch.no_grad():
                 torch.save(
-                    bbox_results, 'demo/bbox_results_{}.pth'.format(IterateMixerDecoderSelfConv._DEBUG))
-                IterateMixerDecoderSelfConv._DEBUG += 1
+                    bbox_results, 'demo/bbox_results_{}.pth'.format(IterateMixerDecoderActivate._DEBUG))
+                IterateMixerDecoderActivate._DEBUG += 1
         return bbox_results
     
     def _update_img_feat(self, stage, img_feat, query_content):
         img_feat_out = []
+        batchsize = img_feat[0].size(0)
+        num_query = query_content.size(1)
         SCALE=len(img_feat)
         for s in range(SCALE):
             img_in = img_feat[s]
             img_batch = img_in
+            h=img_batch.size(2)
+            w=img_batch.size(3)
+            query_seed = query_content
+            if self.query_detach:
+                query_seed = query_seed.detach()
+            
+            query_activate = self.query_projection_stages[stage*SCALE+s](query_seed)
+            query_activate = F.sigmoid(query_activate)
+            #query_activate = query_activate.repeat(self.content_dim)
+            query_activate = query_activate.view(query_seed.size())
+            query_seed = query_seed * query_activate
+            query_seed = torch.sum(query_seed, dim=1)
 
-            img_batch = self.conv_stages[stage*SCALE+s](img_batch)
+            conv_kernel = self.conv_generate_stages[stage*SCALE+s](query_seed.view(batchsize,self.content_dim))
+            conv_kernel = conv_kernel.view(batchsize*self.content_dim,1,3,3)
+            img_batch = img_batch.view(1, batchsize*self.content_dim, h, w)
+            img_batch = F.conv2d(img_batch,conv_kernel,stride=1,padding=1, groups=batchsize*self.content_dim)
+            img_batch = img_batch.view(batchsize, self.content_dim, h,w)
             img_batch = self.conv_norm_stages[stage*SCALE+s](img_batch)
             img_batch = self.conv_activation_stages[stage*SCALE+s](img_batch)
-            img_batch = img_batch + img_in
+
+            mixing_kernel = self.mixing_generate_stages[stage*SCALE+s](query_seed.view(batchsize,self.content_dim))
+            mixing_kernel = mixing_kernel.view(batchsize*self.content_dim,self.content_dim,1,1)
+            img_batch = img_batch.view(1, batchsize*self.content_dim, h, w)
+            img_batch = F.conv2d(img_batch,mixing_kernel,stride=1,padding=0, groups=batchsize)
+            img_batch = img_batch.view(batchsize, self.content_dim, h,w)
+            img_batch = self.mixing_norm_stages[stage*SCALE+s](img_batch)
+            img_batch = self.mixing_activation_stages[stage*SCALE+s](img_batch)
+            img_batch=img_batch+img_in
             img_feat_out.append(img_batch)
         return img_feat_out
 
