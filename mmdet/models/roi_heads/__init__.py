@@ -42,5 +42,5 @@ __all__ = [
     'SCNetRoIHead', 'SCNetMaskHead', 'SCNetSemanticHead', 'SCNetBBoxHead',
     'FeatureRelayHead', 'GlobalContextHead', 'AdaMixerDecoder','IterateMixerDecoder'
     ,'IterateMixerDecoder','IterateMixerDecoderFcos','IterateMixerDecoderSelfConv',
-    'IterateMixerDecoderActivate', IterateMixerDecoderFFN
+    'IterateMixerDecoderActivate', 'IterateMixerDecoderFFN'
 ]
