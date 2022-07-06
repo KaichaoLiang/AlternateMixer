@@ -22,6 +22,7 @@ from ..builder import HEADS
 from .cascade_roi_head import CascadeRoIHead
 from mmcv.cnn import (bias_init_with_prob, build_activation_layer,
                       build_norm_layer)
+from mmcv.runner.base_module import BaseModule, ModuleList, Sequential
 from mmcv.cnn.bricks.transformer import FFN                      
 import os
 import time
@@ -37,10 +38,6 @@ class IterateMixerDecoderFFN(CascadeRoIHead):
                  stage_loss_weights=(1, 1, 1, 1, 1, 1),
                  content_dim=256,
                  featmap_strides=[4, 8, 16, 32],
-                 feedforward_channels=2048,
-                 num_ffn_fcs=2,
-                 dropout=0.0,
-                 ffn_act_cfg=dict(type='ReLU', inplace=True),
                  bbox_head=None,
                  train_cfg=None,
                  test_cfg=None,
@@ -74,10 +71,6 @@ class IterateMixerDecoderFFN(CascadeRoIHead):
             test_cfg=test_cfg,
             pretrained=pretrained,
             init_cfg=init_cfg)
-        self.feedforward_channels = feedforward_channels
-        self.num_ffn_fcs = num_ffn_fcs
-        self.dropout = dropout
-        self.ffn_act_cfg = ffn_act_cfg
         self._init_layers()
         #self.init_weights()
         # train_cfg would be None when run the test.py
@@ -100,13 +93,8 @@ class IterateMixerDecoderFFN(CascadeRoIHead):
         for stage in range(self.num_stages):
 
             for s in range(SCALE):
-                self.conv_generate_stages.append(FFN(
-                                                    self.content_dim,
-                                                    self.feedforward_channels,
-                                                    self.num_ffn_fcs,
-                                                    embed_dims=3*3*self.content_dim,
-                                                    act_cfg=self.ffn_act_cfg,
-                                                    dropout=self.dropout))
+                self.conv_generate_stages.append(Sequential(self.content_dim, self.content_dim),build_activation_layer(dict(type='ReLU', inplace=True)),
+                                                Sequential(self.content_dim, self.content_dim*3*3),build_activation_layer(dict(type='ReLU', inplace=True)))
                 self.conv_generate_norms.append(build_norm_layer(dict(type='LN'), self.content_dim*3*3)[1])
                 if self.feat_norm=='BN2d':
                     self.conv_norm_stages.append(build_norm_layer(dict(type=self.feat_norm), self.content_dim)[1]) 
@@ -114,13 +102,8 @@ class IterateMixerDecoderFFN(CascadeRoIHead):
                     self.conv_norm_stages.append(build_norm_layer(dict(type=self.feat_norm,num_groups=8),self.content_dim)[1]) 
                 self.conv_activation_stages.append(build_activation_layer(dict(type='ReLU', inplace=True)))
 
-                self.mixing_generate_stages.append(FFN(
-                                                    self.content_dim,
-                                                    self.feedforward_channels,
-                                                    self.num_ffn_fcs,
-                                                    embed_dims=self.content_dim*self.content_dim,
-                                                    act_cfg=self.ffn_act_cfg,
-                                                    dropout=self.dropout))
+                self.mixing_generate_stages.append(Sequential(self.content_dim, self.content_dim),build_activation_layer(dict(type='ReLU', inplace=True)),
+                                                Sequential(self.content_dim, self.content_dim*self.content_dim),build_activation_layer(dict(type='ReLU', inplace=True)))
                 self.mixing_generate_norms.append(build_norm_layer(dict(type='LN'), self.content_dim*self.content_dim)[1])
                 if self.feat_norm=='BN2d':
                     self.mixing_norm_stages.append(build_norm_layer(dict(type=self.feat_norm), self.content_dim)[1]) 
