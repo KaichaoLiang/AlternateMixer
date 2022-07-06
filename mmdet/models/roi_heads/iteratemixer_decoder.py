@@ -77,7 +77,7 @@ class IterateMixerDecoder(CascadeRoIHead):
     def _init_layers(self):
         """Initialize layers of the head."""
         self.conv_generate_stages = nn.ModuleList()
-        self.conv_norm_stages = nn.ModuleList()
+        #self.conv_norm_stages = nn.ModuleList()
         self.conv_activation_stages = nn.ModuleList()
 
         self.mixing_generate_stages = nn.ModuleList()
@@ -88,10 +88,10 @@ class IterateMixerDecoder(CascadeRoIHead):
 
             for s in range(SCALE):
                 self.conv_generate_stages.append(Linear(self.content_dim, 3*3*self.content_dim))
-                if self.feat_norm=='BN2d':
-                    self.conv_norm_stages.append(build_norm_layer(dict(type=self.feat_norm), self.content_dim)[1]) 
-                elif self.feat_norm=='GN':
-                    self.conv_norm_stages.append(build_norm_layer(dict(type=self.feat_norm,num_groups=8),self.content_dim)[1]) 
+                #if self.feat_norm=='BN2d':
+                    #self.conv_norm_stages.append(build_norm_layer(dict(type=self.feat_norm), self.content_dim)[1]) 
+                #elif self.feat_norm=='GN':
+                    #self.conv_norm_stages.append(build_norm_layer(dict(type=self.feat_norm,num_groups=8),self.content_dim)[1]) 
                 self.conv_activation_stages.append(build_activation_layer(dict(type='ReLU', inplace=True)))
 
                 self.mixing_generate_stages.append(Linear(self.content_dim, 1*1*self.content_dim*self.content_dim))
@@ -168,7 +168,7 @@ class IterateMixerDecoder(CascadeRoIHead):
             img_batch = img_batch.view(1, batchsize*self.content_dim, h, w)
             img_batch = F.conv2d(img_batch,conv_kernel,stride=1,padding=1, groups=batchsize*self.content_dim)
             img_batch = img_batch.view(batchsize, self.content_dim, h,w)
-            img_batch = self.conv_norm_stages[stage*SCALE+s](img_batch)
+            #img_batch = self.conv_norm_stages[stage*SCALE+s](img_batch)
             img_batch = self.conv_activation_stages[stage*SCALE+s](img_batch)
 
             mixing_kernel = self.mixing_generate_stages[stage*SCALE+s](query_seed.view(batchsize,self.content_dim))
@@ -176,8 +176,8 @@ class IterateMixerDecoder(CascadeRoIHead):
             img_batch = img_batch.view(1, batchsize*self.content_dim, h, w)
             img_batch = F.conv2d(img_batch,mixing_kernel,stride=1,padding=0, groups=batchsize)
             img_batch = img_batch.view(batchsize, self.content_dim, h,w)
-            img_batch = self.mixing_norm_stages[stage*SCALE+s](img_batch)
             img_batch = self.mixing_activation_stages[stage*SCALE+s](img_batch)
+            img_batch = self.mixing_norm_stages[stage*SCALE+s](img_batch)
             img_batch=img_batch+img_in
             img_feat_out.append(img_batch)
         return img_feat_out
