@@ -80,12 +80,18 @@ class IterateMixerDecoderFFN(CascadeRoIHead):
     
     def _init_layers(self):
         """Initialize layers of the head."""
-        self.conv_generate_stages = nn.ModuleList()
+        self.conv_generate_stages1 = nn.ModuleList()
+        self.conv_generate_activate1 = nn.ModuleList()
+        self.conv_generate_stages2 = nn.ModuleList()
+        self.conv_generate_activate2 = nn.ModuleList()
         self.conv_generate_norms = nn.ModuleList()
         self.conv_norm_stages = nn.ModuleList()
         self.conv_activation_stages = nn.ModuleList()
 
-        self.mixing_generate_stages = nn.ModuleList()
+        self.mixing_generate_stages1 = nn.ModuleList()
+        self.mixing_generate_activate1 = nn.ModuleList()
+        self.mixing_generate_stages2 = nn.ModuleList()
+        self.mixing_generate_activate2 = nn.ModuleList()
         self.mixing_generate_norms = nn.ModuleList()
         self.mixing_norm_stages = nn.ModuleList()
         self.mixing_activation_stages = nn.ModuleList()
@@ -93,8 +99,10 @@ class IterateMixerDecoderFFN(CascadeRoIHead):
         for stage in range(self.num_stages):
 
             for s in range(SCALE):
-                self.conv_generate_stages.append(Sequential(Linear(self.content_dim, self.content_dim),build_activation_layer(dict(type='ReLU', inplace=True)),
-                                                Linear(self.content_dim, self.content_dim*3*3),build_activation_layer(dict(type='ReLU', inplace=True))))
+                self.conv_generate_stages1.append(Linear(self.content_dim, self.content_dim))
+                self.conv_generate_activate1.append(build_activation_layer(dict(type='ReLU', inplace=True)))
+                self.conv_generate_stages2.append(Linear(self.content_dim, self.content_dim*3*3))
+                self.conv_generate_activate2.append(build_activation_layer(dict(type='ReLU', inplace=True)))
                 self.conv_generate_norms.append(build_norm_layer(dict(type='LN'), self.content_dim*3*3)[1])
                 if self.feat_norm=='BN2d':
                     self.conv_norm_stages.append(build_norm_layer(dict(type=self.feat_norm), self.content_dim)[1]) 
@@ -102,8 +110,10 @@ class IterateMixerDecoderFFN(CascadeRoIHead):
                     self.conv_norm_stages.append(build_norm_layer(dict(type=self.feat_norm,num_groups=8),self.content_dim)[1]) 
                 self.conv_activation_stages.append(build_activation_layer(dict(type='ReLU', inplace=True)))
 
-                self.mixing_generate_stages.append(Sequential(Linear(self.content_dim, self.content_dim),build_activation_layer(dict(type='ReLU', inplace=True)),
-                                                Linear(self.content_dim, self.content_dim*self.content_dim),build_activation_layer(dict(type='ReLU', inplace=True))))
+                self.mixing_generate_stages1.append(Linear(self.content_dim, self.content_dim))
+                self.mixing_generate_activate1.append(build_activation_layer(dict(type='ReLU', inplace=True)))
+                self.mixing_generate_stages2.append(Linear(self.content_dim, self.content_dim*self.content_dim))
+                self.mixing_generate_activate2.append(build_activation_layer(dict(type='ReLU', inplace=True)))
                 self.mixing_generate_norms.append(build_norm_layer(dict(type='LN'), self.content_dim*self.content_dim)[1])
                 if self.feat_norm=='BN2d':
                     self.mixing_norm_stages.append(build_norm_layer(dict(type=self.feat_norm), self.content_dim)[1]) 
@@ -172,7 +182,10 @@ class IterateMixerDecoderFFN(CascadeRoIHead):
             if self.query_detach:
                 query_seed = query_seed.detach()
 
-            conv_kernel = self.conv_generate_stages[stage*SCALE+s](query_seed)
+            conv_kernel = self.conv_generate_stages1[stage*SCALE+s](query_seed)
+            conv_kernel = self.conv_generate_activate1[stage*SCALE+s](conv_kernel)
+            conv_kernel = self.conv_generate_stages2[stage*SCALE+s](conv_kernel)
+            conv_kernel = self.conv_generate_activate2[stage*SCALE+s](conv_kernel)
             conv_kernel = torch.sum(conv_kernel, dim=1)
             conv_kernel = conv_kernel.view(batchsize*self.content_dim,1,3,3)
             img_batch = img_batch.view(1, batchsize*self.content_dim, h, w)
@@ -181,7 +194,10 @@ class IterateMixerDecoderFFN(CascadeRoIHead):
             img_batch = self.conv_norm_stages[stage*SCALE+s](img_batch)
             img_batch = self.conv_activation_stages[stage*SCALE+s](img_batch)
 
-            mixing_kernel = self.mixing_generate_stages[stage*SCALE+s](query_seed.view(batchsize,self.content_dim))
+            mixing_kernel = self.mixing_generate_stages1[stage*SCALE+s](query_seed.view(batchsize,self.content_dim))
+            mixing_kernel = self.mixing_generate_activate1[stage*SCALE+s](mixing_kernel)
+            mixing_kernel = self.mixing_generate_stages2[stage*SCALE+s](mixing_kernel)
+            mixing_kernel = self.mixing_generate_activate2[stage*SCALE+s](mixing_kernel)
             mixing_kernel = torch.sum(mixing_kernel, dim=1)
             mixing_kernel = mixing_kernel.view(batchsize*self.content_dim,self.content_dim,1,1)
             img_batch = img_batch.view(1, batchsize*self.content_dim, h, w)
