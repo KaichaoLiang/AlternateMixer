@@ -126,17 +126,25 @@ class IterateMixerDecoderFFN(CascadeRoIHead):
         SCALE = len(self.featmap_strides)
         for stage in range(self.num_stages):
             for s in range(SCALE):
-                module = self.conv_generate_stages[stage*SCALE+s]
+                module = self.conv_generate_stages1[stage*SCALE+s]
                 module.reset_parameters()
                 nn.init.xavier_uniform_(module.weight)
                 nn.init.zeros_(module.bias)
-                #module.cuda()
 
-                module = self.mixing_generate_stages[stage*SCALE+s]
+                module = self.conv_generate_stages2[stage*SCALE+s]
                 module.reset_parameters()
                 nn.init.xavier_uniform_(module.weight)
                 nn.init.zeros_(module.bias)
-                #module.cuda()
+
+                module = self.mixing_generate_stages1[stage*SCALE+s]
+                module.reset_parameters()
+                nn.init.xavier_uniform_(module.weight)
+                nn.init.zeros_(module.bias)
+
+                module = self.mixing_generate_stages2[stage*SCALE+s]
+                module.reset_parameters()
+                nn.init.xavier_uniform_(module.weight)
+                nn.init.zeros_(module.bias)
 
     def _bbox_forward(self, stage, img_feat, query_xyzr, query_content, img_metas):
         num_imgs = len(img_metas)
