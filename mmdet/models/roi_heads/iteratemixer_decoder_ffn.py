@@ -93,8 +93,8 @@ class IterateMixerDecoderFFN(CascadeRoIHead):
         for stage in range(self.num_stages):
 
             for s in range(SCALE):
-                self.conv_generate_stages.append(Sequential(self.content_dim, self.content_dim),build_activation_layer(dict(type='ReLU', inplace=True)),
-                                                Sequential(self.content_dim, self.content_dim*3*3),build_activation_layer(dict(type='ReLU', inplace=True)))
+                self.conv_generate_stages.append(Sequential(Linear(self.content_dim, self.content_dim),build_activation_layer(dict(type='ReLU', inplace=True)),
+                                                Linear(self.content_dim, self.content_dim*3*3),build_activation_layer(dict(type='ReLU', inplace=True))))
                 self.conv_generate_norms.append(build_norm_layer(dict(type='LN'), self.content_dim*3*3)[1])
                 if self.feat_norm=='BN2d':
                     self.conv_norm_stages.append(build_norm_layer(dict(type=self.feat_norm), self.content_dim)[1]) 
@@ -102,8 +102,8 @@ class IterateMixerDecoderFFN(CascadeRoIHead):
                     self.conv_norm_stages.append(build_norm_layer(dict(type=self.feat_norm,num_groups=8),self.content_dim)[1]) 
                 self.conv_activation_stages.append(build_activation_layer(dict(type='ReLU', inplace=True)))
 
-                self.mixing_generate_stages.append(Sequential(self.content_dim, self.content_dim),build_activation_layer(dict(type='ReLU', inplace=True)),
-                                                Sequential(self.content_dim, self.content_dim*self.content_dim),build_activation_layer(dict(type='ReLU', inplace=True)))
+                self.mixing_generate_stages.append(Sequential(Linear(self.content_dim, self.content_dim),build_activation_layer(dict(type='ReLU', inplace=True)),
+                                                Linear(self.content_dim, self.content_dim*self.content_dim),build_activation_layer(dict(type='ReLU', inplace=True))))
                 self.mixing_generate_norms.append(build_norm_layer(dict(type='LN'), self.content_dim*self.content_dim)[1])
                 if self.feat_norm=='BN2d':
                     self.mixing_norm_stages.append(build_norm_layer(dict(type=self.feat_norm), self.content_dim)[1]) 
