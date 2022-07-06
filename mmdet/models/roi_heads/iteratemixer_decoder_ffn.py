@@ -199,10 +199,10 @@ class IterateMixerDecoderFFN(CascadeRoIHead):
             img_batch = img_batch.view(1, batchsize*self.content_dim, h, w)
             img_batch = F.conv2d(img_batch,conv_kernel,stride=1,padding=1, groups=batchsize*self.content_dim)
             img_batch = img_batch.view(batchsize, self.content_dim, h,w)
-            img_batch = self.conv_norm_stages[stage*SCALE+s](img_batch)
             img_batch = self.conv_activation_stages[stage*SCALE+s](img_batch)
+            img_batch = self.conv_norm_stages[stage*SCALE+s](img_batch)
 
-            mixing_kernel = self.mixing_generate_stages1[stage*SCALE+s](query_seed.view(batchsize,self.content_dim))
+            mixing_kernel = self.mixing_generate_stages1[stage*SCALE+s](query_seed)
             mixing_kernel = self.mixing_generate_activate1[stage*SCALE+s](mixing_kernel)
             mixing_kernel = self.mixing_generate_stages2[stage*SCALE+s](mixing_kernel)
             mixing_kernel = self.mixing_generate_activate2[stage*SCALE+s](mixing_kernel)
@@ -211,8 +211,8 @@ class IterateMixerDecoderFFN(CascadeRoIHead):
             img_batch = img_batch.view(1, batchsize*self.content_dim, h, w)
             img_batch = F.conv2d(img_batch,mixing_kernel,stride=1,padding=0, groups=batchsize)
             img_batch = img_batch.view(batchsize, self.content_dim, h,w)
-            img_batch = self.mixing_norm_stages[stage*SCALE+s](img_batch)
             img_batch = self.mixing_activation_stages[stage*SCALE+s](img_batch)
+            img_batch = self.mixing_norm_stages[stage*SCALE+s](img_batch)
             img_batch=img_batch+img_in
             img_feat_out.append(img_batch)
         return img_feat_out
