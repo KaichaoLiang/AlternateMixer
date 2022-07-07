@@ -171,8 +171,8 @@ class IterateMixerDecoderAdapt(CascadeRoIHead):
                 query_seed = query_seed.detach()
             
             query_seed = self.query_projection_stages[stage*SCALE+s](query_seed)
-            query_seed = self.query_norm_stages[stage*SCALE+s](query_seed)
             query_seed = self.query_activate_stages[stage*SCALE+s](query_seed)
+            query_seed = self.query_norm_stages[stage*SCALE+s](query_seed)
             query_seed = torch.sum(query_seed, dim=1)
 
             conv_kernel = self.conv_generate_stages[stage*SCALE+s](query_seed.view(batchsize,self.content_dim))
