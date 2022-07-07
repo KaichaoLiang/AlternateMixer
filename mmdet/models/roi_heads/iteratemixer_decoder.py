@@ -88,10 +88,10 @@ class IterateMixerDecoder(CascadeRoIHead):
 
             for s in range(SCALE):
                 self.conv_generate_stages.append(Linear(self.content_dim, 3*3*self.content_dim))
-                #if self.feat_norm=='BN2d':
-                    #self.conv_norm_stages.append(build_norm_layer(dict(type=self.feat_norm), self.content_dim)[1]) 
-                #elif self.feat_norm=='GN':
-                    #self.conv_norm_stages.append(build_norm_layer(dict(type=self.feat_norm,num_groups=8),self.content_dim)[1]) 
+                if self.feat_norm=='BN2d':
+                    self.conv_norm_stages.append(build_norm_layer(dict(type=self.feat_norm), self.content_dim)[1]) 
+                elif self.feat_norm=='GN':
+                    self.conv_norm_stages.append(build_norm_layer(dict(type=self.feat_norm,num_groups=8),self.content_dim)[1]) 
                 self.conv_activation_stages.append(build_activation_layer(dict(type='ReLU', inplace=True)))
 
                 self.mixing_generate_stages.append(Linear(self.content_dim, 1*1*self.content_dim*self.content_dim))
