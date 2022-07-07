@@ -26,7 +26,7 @@ DEBUG = 'DEBUG' in os.environ
 
 
 @HEADS.register_module()
-class IterateMixerDecoder(CascadeRoIHead):
+class IterateMixerDecoderDualConv(CascadeRoIHead):
     _DEBUG = -1
 
     def __init__(self,
@@ -50,7 +50,7 @@ class IterateMixerDecoder(CascadeRoIHead):
         self.query_detach = query_detach
         assert feat_norm in ['GN','BN2d'], "not supported normalization"
         self.feat_norm = feat_norm
-        super(IterateMixerDecoder, self).__init__(
+        super(IterateMixerDecoderDualConv, self).__init__(
             num_stages,
             stage_loss_weights,
             bbox_roi_extractor=dict(
@@ -83,6 +83,11 @@ class IterateMixerDecoder(CascadeRoIHead):
         self.mixing_generate_stages = nn.ModuleList()
         self.mixing_norm_stages = nn.ModuleList()
         self.mixing_activation_stages = nn.ModuleList()
+
+        self.selfconv_stages = nn.ModuleList()
+        self.selfconv_norm_stages = nn.ModuleList()
+        self.selfconv_activation_stages = nn.ModuleList()
+
         SCALE = len(self.featmap_strides)
         for stage in range(self.num_stages):
 
@@ -100,6 +105,13 @@ class IterateMixerDecoder(CascadeRoIHead):
                 elif self.feat_norm=='GN':
                     self.mixing_norm_stages.append(build_norm_layer(dict(type=self.feat_norm, num_groups=8),self.content_dim)[1])  
                 self.mixing_activation_stages.append(build_activation_layer(dict(type='ReLU', inplace=True)))
+
+                self.selfconv_stages.append(nn.Conv2d(in_channels=self.content_dim, out_channels=self.content_dim, kernel_size = 3, stride=1, padding=1))
+                if self.feat_norm=='BN2d':
+                    self.selfconv_norm_stages.append(build_norm_layer(dict(type=self.feat_norm), self.content_dim)[1]) 
+                elif self.feat_norm=='GN':
+                    self.selfconv_norm_stages.append(build_norm_layer(dict(type=self.feat_norm,num_groups=8),self.content_dim)[1]) 
+                self.selfconv_activation_stages.append(build_activation_layer(dict(type='ReLU', inplace=True)))
             
     def init_weights(self):
         super().init_weights()
@@ -144,8 +156,8 @@ class IterateMixerDecoder(CascadeRoIHead):
         if DEBUG:
             with torch.no_grad():
                 torch.save(
-                    bbox_results, 'demo/bbox_results_{}.pth'.format(IterateMixerDecoder._DEBUG))
-                IterateMixerDecoder._DEBUG += 1
+                    bbox_results, 'demo/bbox_results_{}.pth'.format(IterateMixerDecoderDualConv._DEBUG))
+                IterateMixerDecoderDualConv._DEBUG += 1
         return bbox_results
     
     def _update_img_feat(self, stage, img_feat, query_content):
@@ -179,8 +191,14 @@ class IterateMixerDecoder(CascadeRoIHead):
             img_batch = img_batch.view(batchsize, self.content_dim, h,w)
             img_batch = self.mixing_norm_stages[stage*SCALE+s](img_batch)
             img_batch = self.mixing_activation_stages[stage*SCALE+s](img_batch)
-            
             img_batch=img_batch+img_in
+            
+            img_in=img_batch
+            img_batch = self.selfconv_stages[stage*SCALE+s](img_batch)
+            img_batch = self.selfconv_norm_stages[stage*SCALE+s](img_batch)
+            img_batch = self.selfconv_activation_stages[stage*SCALE+s](img_batch)
+            img_batch = img_batch + img_in
+
             img_feat_out.append(img_batch)
         return img_feat_out
 
