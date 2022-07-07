@@ -170,6 +170,7 @@ class IterateMixerDecoder(CascadeRoIHead):
             img_batch = img_batch.view(batchsize, self.content_dim, h,w)
             #img_batch = self.conv_norm_stages[stage*SCALE+s](img_batch)
             img_batch = self.conv_activation_stages[stage*SCALE+s](img_batch)
+            img_batch = self.conv_norm_stages[stage*SCALE+s](img_batch)
 
             mixing_kernel = self.mixing_generate_stages[stage*SCALE+s](query_seed.view(batchsize,self.content_dim))
             mixing_kernel = mixing_kernel.view(batchsize*self.content_dim,self.content_dim,1,1)
