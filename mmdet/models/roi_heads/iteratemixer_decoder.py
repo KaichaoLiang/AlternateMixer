@@ -77,7 +77,7 @@ class IterateMixerDecoder(CascadeRoIHead):
     def _init_layers(self):
         """Initialize layers of the head."""
         self.conv_generate_stages = nn.ModuleList()
-        #self.conv_norm_stages = nn.ModuleList()
+        self.conv_norm_stages = nn.ModuleList()
         self.conv_activation_stages = nn.ModuleList()
 
         self.mixing_generate_stages = nn.ModuleList()
@@ -168,7 +168,6 @@ class IterateMixerDecoder(CascadeRoIHead):
             img_batch = img_batch.view(1, batchsize*self.content_dim, h, w)
             img_batch = F.conv2d(img_batch,conv_kernel,stride=1,padding=1, groups=batchsize*self.content_dim)
             img_batch = img_batch.view(batchsize, self.content_dim, h,w)
-            #img_batch = self.conv_norm_stages[stage*SCALE+s](img_batch)
             img_batch = self.conv_activation_stages[stage*SCALE+s](img_batch)
             img_batch = self.conv_norm_stages[stage*SCALE+s](img_batch)
 

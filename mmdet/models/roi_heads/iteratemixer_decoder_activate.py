@@ -168,7 +168,6 @@ class IterateMixerDecoderActivate(CascadeRoIHead):
             
             query_activate = self.query_projection_stages[stage*SCALE+s](query_seed)
             query_activate = F.sigmoid(query_activate)
-            #query_activate = query_activate.repeat(self.content_dim)
             query_activate = query_activate.view(query_seed.size())
             query_seed = query_seed * query_activate
             query_seed = torch.sum(query_seed, dim=1)
