@@ -20,7 +20,7 @@ from mmdet.models.losses import accuracy
 from mmdet.models.utils import build_transformer
 from .bbox_head import BBoxHead
 
-from .sampling_3d_operator import sampling_3d
+from .sampling_3d_operator import sampling_3d_alternate
 from .alternate_mixing_operator import AlternateMixing
 
 from mmdet.core import bbox_overlaps
@@ -147,7 +147,7 @@ class AlternateSamplingMixing(nn.Module):
             torch.save(
                 sample_points_xyz, 'demo/sample_xy_{}.pth'.format(AlternateSamplingMixing._DEBUG))
 
-        sampled_feature, _ = sampling_3d(sample_points_xyz, x,
+        sampled_feature, _ = sampling_3d_alternate(sample_points_xyz, x, query_feat,
                                          featmap_strides=featmap_strides,
                                          n_points=self.in_points,
                                          )
@@ -250,7 +250,7 @@ class AlternateMixerDecoderStage(BBoxHead):
         self.n_groups = n_groups
         self.out_points = out_points
 
-        self.sampling_n_mixing = AdaptiveSamplingMixing(
+        self.sampling_n_mixing = AlternateSamplingMixing(
             content_dim=content_dim,  # query dim
             feat_channels=feat_channels,
             in_points=self.in_points,
