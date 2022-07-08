@@ -1,3 +1,10 @@
+#-------------------------------------------------------------------------
+# file: alternatemixer_decoder_stage.py
+# author: kaichao liang
+# date: 2022.06.16
+# discription: alternative iteration for feature paramid and queries stage.
+#--------------------------------------------------------------------------
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -14,7 +21,7 @@ from mmdet.models.utils import build_transformer
 from .bbox_head import BBoxHead
 
 from .sampling_3d_operator import sampling_3d
-from .adaptive_mixing_operator import AdaptiveMixing
+from .alternate_mixing_operator import AlternateMixing
 
 from mmdet.core import bbox_overlaps
 
@@ -66,7 +73,7 @@ def make_sample_points(offset, num_group, xyzr):
     return torch.cat([sample_yx, sample_lvl], dim=-1)
 
 
-class AdaptiveSamplingMixing(nn.Module):
+class AlternateSamplingMixing(nn.Module):
     _DEBUG = 0
 
     def __init__(self,
@@ -76,7 +83,7 @@ class AdaptiveSamplingMixing(nn.Module):
                  content_dim=256,
                  feat_channels=None
                  ):
-        super(AdaptiveSamplingMixing, self).__init__()
+        super(AlternateSamplingMixing, self).__init__()
         self.in_points = in_points
         self.out_points = out_points
         self.n_groups = n_groups
@@ -89,7 +96,7 @@ class AdaptiveSamplingMixing(nn.Module):
 
         self.norm = nn.LayerNorm(content_dim)
 
-        self.adaptive_mixing = AdaptiveMixing(
+        self.adaptive_mixing = AlternateMixing(
             self.feat_channels,
             query_dim=self.content_dim,
             in_points=self.in_points,
@@ -138,7 +145,7 @@ class AdaptiveSamplingMixing(nn.Module):
 
         if DEBUG:
             torch.save(
-                sample_points_xyz, 'demo/sample_xy_{}.pth'.format(AdaptiveSamplingMixing._DEBUG))
+                sample_points_xyz, 'demo/sample_xy_{}.pth'.format(AlternateSamplingMixing._DEBUG))
 
         sampled_feature, _ = sampling_3d(sample_points_xyz, x,
                                          featmap_strides=featmap_strides,
@@ -147,8 +154,8 @@ class AdaptiveSamplingMixing(nn.Module):
 
         if DEBUG:
             torch.save(
-                sampled_feature, 'demo/sample_feature_{}.pth'.format(AdaptiveSamplingMixing._DEBUG))
-            AdaptiveSamplingMixing._DEBUG += 1
+                sampled_feature, 'demo/sample_feature_{}.pth'.format(AlternateSamplingMixing._DEBUG))
+            AlternateSamplingMixing._DEBUG += 1
 
         query_feat = self.adaptive_mixing(sampled_feature, query_feat)
         query_feat = self.norm(query_feat)
@@ -171,7 +178,7 @@ def position_embedding(token_xyzr, num_feats, temperature=10000):
 
 
 @HEADS.register_module()
-class AdaMixerDecoderStage(BBoxHead):
+class AlternateMixerDecoderStage(BBoxHead):
     _DEBUG = -1
 
     def __init__(self,
@@ -193,7 +200,7 @@ class AdaMixerDecoderStage(BBoxHead):
                  **kwargs):
         assert init_cfg is None, 'To prevent abnormal initialization ' \
                                  'behavior, init_cfg is not allowed to be set'
-        super(AdaMixerDecoderStage, self).__init__(
+        super(AlternateMixerDecoderStage, self).__init__(
             num_classes=num_classes,
             reg_decoded_bbox=True,
             reg_class_agnostic=True,
@@ -255,7 +262,7 @@ class AdaMixerDecoderStage(BBoxHead):
 
     @torch.no_grad()
     def init_weights(self):
-        super(AdaMixerDecoderStage, self).init_weights()
+        super(AlternateMixerDecoderStage, self).init_weights()
         for n, m in self.named_modules():
             if isinstance(m, nn.Linear):
                 m.reset_parameters()
@@ -280,7 +287,7 @@ class AdaMixerDecoderStage(BBoxHead):
                 featmap_strides):
         N, n_query = query_content.shape[:2]
 
-        AdaMixerDecoderStage._DEBUG += 1
+        AlternateMixerDecoderStage._DEBUG += 1
 
         with torch.no_grad():
             rois = decode_box(query_xyzr)
