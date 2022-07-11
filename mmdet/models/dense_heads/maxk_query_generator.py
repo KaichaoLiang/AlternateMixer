@@ -82,14 +82,11 @@ class MaxkGenerator(AnchorFreeHead):
         
         if self.norm_on_bbox:
             for s in range(len(self.strides)):
-                #bbox_preds[s] = bbox_preds[s].clamp(min=0)
                 bbox_preds[s]*=bbox_preds[s]*self.strides[s]
         xyzr, init_content_features, imgs_whwh = self.fcos_feature_proposal(cat_features, img_metas, cls_scores, bbox_preds)
 
         return {},xyzr, init_content_features, imgs_whwh
        
-    
-
     def simple_test_rpn(self, x, img_metas, rescale=False):
         outs = self(x)
         cls_scores = outs[0]
@@ -98,7 +95,6 @@ class MaxkGenerator(AnchorFreeHead):
 
         if self.norm_on_bbox:
             for s in range(len(self.strides)):
-                #bbox_preds[s] = bbox_preds[s].clamp(min=0)
                 bbox_preds[s]*=bbox_preds[s]*self.strides[s]
         xyzr, init_content_features, imgs_whwh = self.fcos_feature_proposal(cat_features, img_metas, cls_scores, bbox_preds)
 
@@ -155,9 +151,7 @@ class MaxkGenerator(AnchorFreeHead):
             bbox_pred = bbox_pred.clamp(min=0)
         else:
             bbox_pred = bbox_pred.exp()
-        out_feat = torch.cat((cls_feat,reg_feat),-1)
-        out_feat = self.feat_projector(out_feat)
-        out_feat = self.feat_norm(out_feat)
+        out_feat = torch.cat((cls_feat,reg_feat),1)
         return cls_score, bbox_pred, out_feat
 
     def bbox_cxcywh_to_xyxy(self,bbox):
@@ -261,6 +255,8 @@ class MaxkGenerator(AnchorFreeHead):
         # NOTE: xyzr **not** learnable
         xyzr = torch.cat([xy, z, r], dim=-1).detach()
 
+        select_features = self.feat_projector(select_features)
+        select_features = self.feat_norm(select_features)
         return xyzr, select_features, imgs_whwh
     
     def get_targets(self, points, gt_bboxes_list, gt_labels_list):
