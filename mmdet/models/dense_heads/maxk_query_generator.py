@@ -54,7 +54,7 @@ class MaxkGenerator(AnchorFreeHead):
         super()._init_layers()
         #self.conv_centerness = nn.Conv2d(self.feat_channels, 1, 3, padding=1)
         self.feat_projector = nn.Linear(2*self.feat_channels, self.feat_channels)
-        self.feat_norm = build_norm_layer(dict(type='LN'),self.content_dim)[1]
+        self.feat_norm = build_norm_layer(dict(type='LN'),self.feat_channels)[1]
         self.scales = nn.ModuleList([Scale(1.0) for _ in self.strides])
     
     def forward_train(self,
