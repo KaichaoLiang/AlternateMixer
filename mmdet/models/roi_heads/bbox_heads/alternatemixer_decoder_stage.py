@@ -147,7 +147,7 @@ class AlternateSamplingMixing(nn.Module):
             torch.save(
                 sample_points_xyz, 'demo/sample_xy_{}.pth'.format(AlternateSamplingMixing._DEBUG))
 
-        sampled_feature, _ = sampling_3d_alternate(sample_points_xyz, x, query_feat,
+        sampled_feature, sampled_fp = sampling_3d_alternate(sample_points_xyz, x, query_feat,
                                          featmap_strides=featmap_strides,
                                          n_points=self.in_points,
                                          )

@@ -86,10 +86,31 @@ def sampling_each_level_alternate(sample_points: torch.Tensor,
     # inverse sampling modified by kaichao liang
     #sample_points back to position index level. 
     sample_points = (sample_points+1.0)/2.0
-    sample_points = sample_points.view(B*n_groups,n_queries*n_points,2)
-    sample_points = sample_points[:,:,1] * H_feat - 0.5
-    sample_points = sample_points[:,:,2] * W_feat - 0.5
-    inverse_feats = inverse_sample(sample_points,)
+    sample_points = sample_points.view(B*n_groups,n_queries,n_points,2)
+    sample_points = sample_points[:,:,:,0] * H_feat
+    sample_points = sample_points[:,:,:,1] * W_feat
+    inverse_feats = inverse_sample(sample_points, query, H_feat, W_feat)
+
+# The inverse sampling sparse feature by kaichao liang
+def inverse_sample(sample_points, query, H_feat, W_feat):
+    BG, Nq, Np, _ =sample_points.size()
+    sample_points=sample_points.int()
+    sample_points[:,:,:,0] = torch.clip(sample_points[:,:,:,0], 0, H_feat-1)
+    sample_points[:,:,:,1] = torch.clip(sample_points[:,:,:,1], 0, W_feat-1)
+    
+    sample_points_flatten = sample_points[:,:,:,0]*W_feat+sample_points[:,:,:,1]
+    sample_points_flatten = sample_points_flatten.view(BG, Nq, Np)
+    
+    query_index_val = torch.linspace(0,Nq-1,Nq).to(sample_points.device)
+    query_index_val = query_index_val.view(1,Nq,1).repeat(BG,1,Np)
+
+    feat_index_map = sample_points.new_zeros(BG,Nq,H_feat*W_feat)
+    feat_index_map.scatter_(-1,sample_points_flatten,query_index_val)
+    feat_index_map = feat_index_map.view(BG,Nq,H_feat,W_feat)
+    feat_index_map = feat_index_map.permute(0,2,3,1)
+    
+
+    
 
 def translate_to_linear_weight(ref: torch.Tensor, num_total,
                                tau=2.0, featmap_strides=None):
@@ -185,6 +206,7 @@ def sampling_3d_alternate(
     out_query = sample_points.new_zeros(
         B, n_queries, n_groups, n_points, n_channels)
 
+    out_feats = []
     for i in range(num_levels):
         value = multi_lvl_values[i]
         lvl_weights = sample_points_lvl_weight_list[i]
@@ -197,7 +219,7 @@ def sampling_3d_alternate(
 
         out_query_lvl,  out_feat_lvl = sampling_each_level_alternate(normalized_xy, value, query,
                                    weight=lvl_weights, n_points=n_points)
-        
+        out_feats.append(out_feat_lvl)
         out_query += out_query_lvl
 
-    return out_query, None
+    return out_query, out_feats

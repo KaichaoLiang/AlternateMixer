@@ -44,6 +44,7 @@ from .fcos_query_generator_clsfeat import FcosQueryGeneratorClsFeat
 from .fcos_query_generator_withbox import FcosQueryGeneratorWithBox
 from .fcos_query_generator_mixquery import FcosQueryGeneratorMixQuery
 from .fcosconstraint_query_generator import FcosConstraintQueryGenerator
+from .maxk_query_generator import MaxkGenerator
 __all__ = [
     'AnchorFreeHead', 'AnchorHead', 'GuidedAnchorHead', 'FeatureAdaption',
     'RPNHead', 'GARPNHead', 'RetinaHead', 'RetinaSepBNHead', 'GARetinaHead',
@@ -57,5 +58,6 @@ __all__ = [
     'SOLOHead', 'DecoupledSOLOHead', 'CenterNetHead', 'YOLOXHead',
     'DecoupledSOLOLightHead', 'LADHead', 'TOODHead', 'MaskFormerHead',
     'Mask2FormerHead','InitialQueryGenerator','FcosQueryGeneratorWithBox',
-    'FcosQueryGeneratorMixQuery','FcosQueryGeneratorClsFeat','FcosConstraintQueryGenerator'
+    'FcosQueryGeneratorMixQuery','FcosQueryGeneratorClsFeat','FcosConstraintQueryGenerator',
+    'MaxkGenerator'
 ]
