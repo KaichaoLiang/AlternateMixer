@@ -260,4 +260,10 @@ class MaxkGenerator(AnchorFreeHead):
         xyzr = torch.cat([xy, z, r], dim=-1).detach()
 
         return xyzr, select_features, imgs_whwh
+    
+    def get_targets(self, points, gt_bboxes_list, gt_labels_list):
+        return None
+    
+    def loss(self, cls_scores, bbox_preds, gt_bboxes, gt_labels, img_metas, gt_bboxes_ignore=None):
+        return None
 
