@@ -84,10 +84,6 @@ class MaxkGenerator(AnchorFreeHead):
         self.constant_bbox_seed = constant_bbox_seed
         self.position_embedding = position_embedding
         
-        if(self.position_embedding):
-            self.position_embedding = PositionEmbeddingSine(self.feat_channels, normalize=True)
-            self.pyramid_position_embedding = nn.Parameter(torch.ones(len(self.strides), self.feat_channels*2), requires_grad=True)
-
         super().__init__(
             num_classes,
             in_channels,
@@ -96,6 +92,11 @@ class MaxkGenerator(AnchorFreeHead):
             norm_cfg=norm_cfg,
             init_cfg=init_cfg,
             **kwargs)
+        
+        if(self.position_embedding):
+            self.position_embedding = PositionEmbeddingSine(self.feat_channels, normalize=True)
+            self.pyramid_position_embedding = nn.Parameter(torch.ones(len(self.strides), self.feat_channels*2), requires_grad=True)
+
 
     def _init_layers(self):
         """Initialize layers of the head."""
