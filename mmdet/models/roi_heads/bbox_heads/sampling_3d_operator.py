@@ -86,31 +86,42 @@ def sampling_each_level_alternate(sample_points: torch.Tensor,
     # inverse sampling modified by kaichao liang
     #sample_points back to position index level. 
     sample_points = (sample_points+1.0)/2.0
-    sample_points = sample_points.view(B*n_groups,n_queries,n_points,2)
-    sample_points = sample_points[:,:,:,0] * H_feat
-    sample_points = sample_points[:,:,:,1] * W_feat
-    inverse_feats = inverse_sample(sample_points, query, H_feat, W_feat)
+    sample_points = sample_points.view(B,n_groups,n_queries,n_points,2)
+    sample_points = sample_points.permute(0,2,1,3,4)
+    sample_points = sample_points.view(B,n_queries,n_groups*n_points,2)
+    weight = weight.view(B, n_groups, n_queries, n_points).permute(0,2,1,3).view(B, n_queries,-1)
+    sample_points = sample_points[:,:,:,0] * (H_feat)
+    sample_points = sample_points[:,:,:,1] * (W_feat)
+    inverse_feats = inverse_sample(sample_points, query, weight, H_feat, W_feat)
+
+    return out, inverse_feats
 
 # The inverse sampling sparse feature by kaichao liang
-def inverse_sample(sample_points, query, H_feat, W_feat):
-    BG, Nq, Np, _ =sample_points.size()
+def inverse_sample(sample_points, query, weight, H_feat, W_feat):
+    B, Nq, Np, _ =sample_points.size()
     sample_points=sample_points.int()
     sample_points[:,:,:,0] = torch.clip(sample_points[:,:,:,0], 0, H_feat-1)
     sample_points[:,:,:,1] = torch.clip(sample_points[:,:,:,1], 0, W_feat-1)
     
     sample_points_flatten = sample_points[:,:,:,0]*W_feat+sample_points[:,:,:,1]
-    sample_points_flatten = sample_points_flatten.view(BG, Nq, Np)
+    sample_points_flatten = sample_points_flatten.view(B, Nq, Np)
     
-    query_index_val = torch.linspace(0,Nq-1,Nq).to(sample_points.device)
-    query_index_val = query_index_val.view(1,Nq,1).repeat(BG,1,Np)
-
-    feat_index_map = sample_points.new_zeros(BG,Nq,H_feat*W_feat)
+    query_index_val = weight
+    
+    feat_index_map = sample_points.new_zeros(B,Nq,H_feat*W_feat)
     feat_index_map.scatter_(-1,sample_points_flatten,query_index_val)
-    feat_index_map = feat_index_map.view(BG,Nq,H_feat,W_feat)
-    feat_index_map = feat_index_map.permute(0,2,3,1)
-    
+    feat_index_map = feat_index_map.permute(0,2,1)
 
-    
+    feat_update = []
+    for id in range(B):
+        feat_index_tmp = feat_index_map[id,:,:]
+        query_tmp = query[id,:,:]
+        feat_tmp = torch.matmul(feat_index_tmp, query_tmp)
+        feat_update.append(feat_tmp)
+    feat_update = torch.cat(feat_update, dim=0)
+    feat_update = feat_update.permute(0,2,1).view(B,-1,H_feat,W_feat)
+    return feat_update
+       
 
 def translate_to_linear_weight(ref: torch.Tensor, num_total,
                                tau=2.0, featmap_strides=None):

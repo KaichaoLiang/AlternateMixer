@@ -160,7 +160,7 @@ class AlternateSamplingMixing(nn.Module):
         query_feat = self.adaptive_mixing(sampled_feature, query_feat)
         query_feat = self.norm(query_feat)
 
-        return query_feat
+        return query_feat, sampled_fp
 
 
 def position_embedding(token_xyzr, num_feats, temperature=10000):
@@ -182,6 +182,7 @@ class AlternateMixerDecoderStage(BBoxHead):
     _DEBUG = -1
 
     def __init__(self,
+                 scales=4,
                  num_classes=80,
                  num_ffn_fcs=2,
                  num_heads=8,
@@ -211,7 +212,7 @@ class AlternateMixerDecoderStage(BBoxHead):
         self.fp16_enabled = False
         self.attention = MultiheadAttention(content_dim, num_heads, dropout)
         self.attention_norm = build_norm_layer(dict(type='LN'), content_dim)[1]
-
+        self.scales = scales
         self.ffn = FFN(
             content_dim,
             feedforward_channels,
@@ -259,6 +260,12 @@ class AlternateMixerDecoderStage(BBoxHead):
         )
 
         self.iof_tau = nn.Parameter(torch.ones(self.attention.num_heads, ))
+        self.fp_update_convset = nn.ModuleList()
+        self.fp_update_convnormset = nn.ModuleList()
+        self.fp_activate = build_activation_layer(dict(type='ReLU', inplace=True))
+        for s in range(scales):
+            self.fp_update_convset.append(nn.Conv2d(self.feat_channels, self.feat_channels, 1, padding=0))
+            self.fp_update_convnormset.append(build_norm_layer(dict(type=self.feat_norm,num_groups=8),self.content_dim)[1])
 
     @torch.no_grad()
     def init_weights(self):
@@ -312,8 +319,18 @@ class AlternateMixerDecoderStage(BBoxHead):
         query_content = query_content.permute(1, 0, 2)
 
         ''' adaptive 3D sampling and mixing '''
-        query_content = self.sampling_n_mixing(
+        query_content, sampled_fp = self.sampling_n_mixing(
             x, query_content, query_xyzr, featmap_strides)
+        
+        feature_pyramid = []
+        for s in range(self.scales):
+            base_feature = x[s]
+            feature = sampled_fp[s]
+            feature = self.fp_update_convset[s](feature)
+            feature = self.fp_update_convnormset[s](feature)
+            feature = self.fp_activate(feature)
+            feature_out = base_feature +feature
+            feature_pyramid.append(feature_out)
 
         # FFN
         query_content = self.ffn_norm(self.ffn(query_content))
@@ -329,7 +346,7 @@ class AlternateMixerDecoderStage(BBoxHead):
         cls_score = self.fc_cls(cls_feat).view(N, n_query, -1)
         xyzr_delta = self.fc_reg(reg_feat).view(N, n_query, -1)
 
-        return cls_score, xyzr_delta, query_content.view(N, n_query, -1)
+        return cls_score, xyzr_delta, query_content.view(N, n_query, -1), feature_pyramid
 
     def refine_xyzr(self, xyzr, xyzr_delta, return_bbox=True):
         z = xyzr[..., 2:3]
