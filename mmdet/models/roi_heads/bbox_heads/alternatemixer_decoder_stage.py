@@ -264,7 +264,7 @@ class AlternateMixerDecoderStage(BBoxHead):
         self.fp_update_convnormset = nn.ModuleList()
         self.fp_activate = build_activation_layer(dict(type='ReLU', inplace=True))
         for s in range(scales):
-            self.fp_update_convset.append(nn.Conv2d(self.feat_channels, self.feat_channels, 1, padding=0))
+            self.fp_update_convset.append(nn.Conv2d(self.content_dim, self.content_dim, 1, padding=0))
             self.fp_update_convnormset.append(build_norm_layer(dict(type=self.feat_norm,num_groups=8),self.content_dim)[1])
 
     @torch.no_grad()
