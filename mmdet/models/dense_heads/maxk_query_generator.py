@@ -105,7 +105,7 @@ class MaxkGenerator(AnchorFreeHead):
         self.feat_projector = nn.Linear(2*self.feat_channels, self.feat_channels)
         self.feat_norm = build_norm_layer(dict(type='LN'),self.feat_channels)[1]
         self.scales = nn.ModuleList([Scale(1.0) for _ in self.strides])
-        self.init_proposal_bboxes = nn.Embedding(self.num_query, 4)
+        self.init_proposal_bboxes = nn.Embedding(self.maxk_num, 4)
     
     def init_weights(self):
         super(MaxkGenerator, self).init_weights()
