@@ -192,7 +192,7 @@ class MaxkGenerator(AnchorFreeHead):
         flatten_features = torch.cat(flatten_features,dim=1)
         flatten_cls_scores = torch.cat(flatten_cls_scores,dim=1)
         flatten_bbox_preds = torch.cat(flatten_bbox_preds,dim=1)
-        flatten_centerness = torch.cat(flatten_centerness,dim=1)
+        
         flatten_points = torch.cat(
             [points.view(1,-1,2).repeat(num_imgs,1, 1) for points in all_level_points],dim=1)
         sigm = torch.nn.Sigmoid()
