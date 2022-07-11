@@ -25,6 +25,7 @@ class MaxkGenerator(AnchorFreeHead):
                  num_classes,
                  in_channels,
                  maxk_num = 100,
+                 norm_on_bbox=False,
                  cls_stack_conv=True,
                  reg_stack_conv=True,
                  position_embedding=False,
@@ -40,6 +41,7 @@ class MaxkGenerator(AnchorFreeHead):
                          bias_prob=0.01)),
                  **kwargs):
         self.maxk_num = maxk_num
+        self.norm_on_bbox = norm_on_bbox
         super().__init__(
             num_classes,
             in_channels,
