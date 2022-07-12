@@ -106,7 +106,7 @@ def inverse_sample(sample_points, query, weight, H_feat, W_feat):
     sample_points=sample_points.int()
     sample_points[:,:,:,0] = torch.clip(sample_points[:,:,:,0], 0, H_feat-1)
     sample_points[:,:,:,1] = torch.clip(sample_points[:,:,:,1], 0, W_feat-1)
-    
+    print(sample_points.dtype)
     sample_points_flatten = sample_points[:,:,:,0]*W_feat+sample_points[:,:,:,1]
     sample_points_flatten = sample_points_flatten.view(B, Nq, Np)
     
