@@ -112,7 +112,8 @@ def inverse_sample(sample_points, query, weight, H_feat, W_feat):
     
     query_index_val = weight
     
-    feat_index_map = sample_points.new_zeros(B,Nq,H_feat*W_feat)
+    feat_index_map = query.new_zeros(B,Nq,H_feat*W_feat)
+    print(query_index_val.dtype, feat_index_map.type)
     feat_index_map.scatter_(-1,sample_points_flatten,query_index_val)
     feat_index_map = feat_index_map.permute(0,2,1)
 
