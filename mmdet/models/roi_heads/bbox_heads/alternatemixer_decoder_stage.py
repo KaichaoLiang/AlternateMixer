@@ -264,7 +264,7 @@ class AlternateMixerDecoderStage(BBoxHead):
         self.fp_update_convnormset = nn.ModuleList()
         self.fp_activate = build_activation_layer(dict(type='ReLU', inplace=True))
         for s in range(scales):
-            self.fp_update_convset.append(nn.Conv2d(self.content_dim, self.content_dim, 1, padding=0))
+            self.fp_update_convset.append(nn.Conv2d(in_channels=self.content_dim, out_channels=self.content_dim, kernel_size=1, stride=1, padding=0))
             self.fp_update_convnormset.append(build_norm_layer(dict(type='GN',num_groups=8),self.content_dim)[1])
 
     @torch.no_grad()
@@ -326,9 +326,9 @@ class AlternateMixerDecoderStage(BBoxHead):
         for s in range(self.scales):
             base_feature = x[s]
             feature = sampled_fp[s]
-            #feature = self.fp_update_convset[s](feature)
-            #feature = self.fp_update_convnormset[s](feature)
-            #feature = self.fp_activate(feature)
+            feature = self.fp_update_convset[s](feature)
+            feature = self.fp_update_convnormset[s](feature)
+            feature = self.fp_activate(feature)
             feature_out = base_feature +feature
             feature_pyramid.append(feature_out)
 
