@@ -119,7 +119,7 @@ def inverse_sample(sample_points, query, weight, H_feat, W_feat):
         feat_tmp = torch.matmul(feat_index_tmp, query_tmp)
         feat_update.append(feat_tmp.view(1,H_feat*W_feat,-1))
     feat_update = torch.cat(feat_update, dim=0)
-    feat_update = feat_update.permute(0,2,1).view(B,-1,H_feat,W_feat)
+    feat_update = feat_update.permute(0,2,1).view(B,-1,H_feat,W_feat).contiguous()
     return feat_update
        
 

@@ -21,7 +21,7 @@ from mmdet.models.utils import build_transformer
 from .bbox_head import BBoxHead
 
 from .sampling_3d_operator import sampling_3d_alternate
-from .alternate_mixing_operator import AlternateMixing
+from .adaptive_mixing_operator import AdaptiveMixing
 
 from mmdet.core import bbox_overlaps
 
@@ -96,7 +96,7 @@ class AlternateSamplingMixing(nn.Module):
 
         self.norm = nn.LayerNorm(content_dim)
 
-        self.adaptive_mixing = AlternateMixing(
+        self.adaptive_mixing = AdaptiveMixing(
             self.feat_channels,
             query_dim=self.content_dim,
             in_points=self.in_points,
