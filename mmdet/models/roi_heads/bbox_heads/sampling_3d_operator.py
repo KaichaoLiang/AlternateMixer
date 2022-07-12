@@ -93,7 +93,7 @@ def sampling_each_level_alternate(sample_points: torch.Tensor,
     print('mark sample shape',sample_points.size(),B,n_queries,n_groups,n_points,sample_points.is_contiguous())
     sample_points = sample_points.view(4,100,128,2)
     
-    weight = weight.view(B, n_groups, n_queries, n_points).permute(0,2,1,3).view(B, n_queries,-1)
+    weight = weight.view(B, n_groups, n_queries, n_points).permute(0,2,1,3).contiguous().view(B, n_queries,-1)
     sample_points = sample_points[:,:,:,0] * (H_feat)
     sample_points = sample_points[:,:,:,1] * (W_feat)
     inverse_feats = inverse_sample(sample_points, query, weight, H_feat, W_feat)
