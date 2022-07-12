@@ -326,9 +326,9 @@ class AlternateMixerDecoderStage(BBoxHead):
         for s in range(self.scales):
             base_feature = x[s]
             feature = sampled_fp[s]
-            feature = self.fp_update_convset[s](feature)
-            feature = self.fp_update_convnormset[s](feature)
-            feature = self.fp_activate(feature)
+            #feature = self.fp_update_convset[s](feature)
+            #feature = self.fp_update_convnormset[s](feature)
+            #feature = self.fp_activate(feature)
             feature_out = base_feature +feature
             feature_pyramid.append(feature_out)
 
