@@ -11,7 +11,7 @@ import torch.nn.functional as F
 from mmcv.cnn import (bias_init_with_prob, build_activation_layer,
                       build_norm_layer)
 from mmcv.cnn.bricks.transformer import FFN, MultiheadAttention
-from mmcv.runner import auto_fp16, force_fp32
+from mmcv.runner import BaseModule, auto_fp16, force_fp32
 
 from mmdet.core import multi_apply
 from mmdet.models.builder import HEADS, build_loss
@@ -73,7 +73,7 @@ def make_sample_points(offset, num_group, xyzr):
     return torch.cat([sample_yx, sample_lvl], dim=-1)
 
 
-class AlternateSamplingMixing(nn.Module):
+class AlternateSamplingMixing(BaseModule):
     _DEBUG = 0
 
     def __init__(self,
@@ -104,6 +104,8 @@ class AlternateSamplingMixing(nn.Module):
             n_groups=self.n_groups,
         )
 
+        self.query_fn = nn.Conv2d(self.content_dim, self.content_dim)
+        self.query_fn_norm = build_norm_layer(dict(type='LN'),self.content_dim)[1]
         self.init_weights()
 
     @torch.no_grad()
@@ -147,11 +149,12 @@ class AlternateSamplingMixing(nn.Module):
             torch.save(
                 sample_points_xyz, 'demo/sample_xy_{}.pth'.format(AlternateSamplingMixing._DEBUG))
 
-        sampled_feature, sampled_fp = sampling_3d_alternate(sample_points_xyz, x, query_feat,
+        query_fn = self.query_fn(query_feat)
+        query_fn = self.query_fn_norm(query_fn)
+        sampled_feature, sampled_fp = sampling_3d_alternate(sample_points_xyz, x, query_fn,
                                          featmap_strides=featmap_strides,
                                          n_points=self.in_points,
                                          )
-
         if DEBUG:
             torch.save(
                 sampled_feature, 'demo/sample_feature_{}.pth'.format(AlternateSamplingMixing._DEBUG))
@@ -264,7 +267,7 @@ class AlternateMixerDecoderStage(BBoxHead):
         self.fp_update_convnormset = nn.ModuleList()
         self.fp_activate = build_activation_layer(dict(type='ReLU', inplace=True))
         for s in range(scales):
-            self.fp_update_convset.append(nn.Conv2d(in_channels=self.content_dim, out_channels=self.content_dim, kernel_size=1, stride=1, padding=0))
+            self.fp_update_convset.append(nn.Conv2d(in_channels=self.content_dim, out_channels=self.content_dim, kernel_size=3, stride=1, padding=1))
             self.fp_update_convnormset.append(build_norm_layer(dict(type='GN',num_groups=8),self.content_dim)[1])
 
     @torch.no_grad()
