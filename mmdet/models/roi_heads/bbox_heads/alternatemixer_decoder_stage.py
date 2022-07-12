@@ -104,7 +104,7 @@ class AlternateSamplingMixing(BaseModule):
             n_groups=self.n_groups,
         )
 
-        self.query_fn = nn.Conv2d(self.content_dim, self.content_dim)
+        self.query_fn = nn.Linear(self.content_dim, self.content_dim)
         self.query_fn_norm = build_norm_layer(dict(type='LN'),self.content_dim)[1]
         self.init_weights()
 
