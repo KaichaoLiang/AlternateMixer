@@ -103,7 +103,7 @@ def sampling_each_level_alternate(sample_points: torch.Tensor,
 # The inverse sampling sparse feature by kaichao liang
 def inverse_sample(sample_points, query, weight, H_feat, W_feat):
     B, Nq, Np, _ =sample_points.size()
-    sample_points=sample_points.int()
+    sample_points=sample_points.int64()
     sample_points[:,:,:,0] = torch.clip(sample_points[:,:,:,0], 0, H_feat-1)
     sample_points[:,:,:,1] = torch.clip(sample_points[:,:,:,1], 0, W_feat-1)
     print(sample_points.dtype)
