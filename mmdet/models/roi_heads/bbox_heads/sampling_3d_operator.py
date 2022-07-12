@@ -103,14 +103,12 @@ def inverse_sample(sample_points, query, weight, H_feat, W_feat):
     sample_points=sample_points.long()
     sample_points[:,:,:,0] = torch.clip(sample_points[:,:,:,0], 0, H_feat-1)
     sample_points[:,:,:,1] = torch.clip(sample_points[:,:,:,1], 0, W_feat-1)
-    print(sample_points.dtype)
     sample_points_flatten = sample_points[:,:,:,0]*W_feat+sample_points[:,:,:,1]
     sample_points_flatten = sample_points_flatten.view(B, Nq, Np)
     
     query_index_val = weight
     
     feat_index_map = query.new_zeros(B,Nq,H_feat*W_feat)
-    print(query_index_val.dtype, feat_index_map.type)
     feat_index_map.scatter_(-1,sample_points_flatten,query_index_val)
     feat_index_map = feat_index_map.permute(0,2,1)
 
@@ -121,7 +119,6 @@ def inverse_sample(sample_points, query, weight, H_feat, W_feat):
         feat_tmp = torch.matmul(feat_index_tmp, query_tmp)
         feat_update.append(feat_tmp.view(1,H_feat*W_feat,-1))
     feat_update = torch.cat(feat_update, dim=0)
-    print(feat_update.shape)
     feat_update = feat_update.permute(0,2,1).view(B,-1,H_feat,W_feat)
     return feat_update
        
