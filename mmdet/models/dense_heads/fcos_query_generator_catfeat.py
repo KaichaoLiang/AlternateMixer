@@ -118,7 +118,7 @@ class FcosQueryGeneratorCatFeat(AnchorFreeHead):
                 bbox_preds[s]*=bbox_preds[s]*self.strides[s]
         xyzr, init_content_features, imgs_whwh = self.fcos_feature_proposal(cat_features, img_metas, cls_scores, bbox_preds, centernesses)
 
-        return losses,xyzr, init_content_features, imgs_whwh
+        return {},xyzr, init_content_features, imgs_whwh
        
     
 
