@@ -85,15 +85,16 @@ def sampling_each_level_alternate(sample_points: torch.Tensor,
     
     # inverse sampling modified by kaichao liang
     #sample_points back to position index level. 
-    sample_points = (sample_points+1.0)/2.0
-    sample_points = sample_points.view(B,n_groups,n_queries,n_points,2)
-    sample_points = sample_points.permute(0,2,1,3,4)
-    sample_points = sample_points.contiguous()
-    sample_points = sample_points.view(B,n_queries,n_groups*n_points, 2)
-    sample_points[:,:,:,0] = sample_points[:,:,:,0] * (H_feat)
-    sample_points[:,:,:,1] = sample_points[:,:,:,1] * (W_feat)
-    weight = weight.view(B, n_groups, n_queries, n_points).permute(0,2,1,3).contiguous().view(B, n_queries,-1)
-    inverse_feats = inverse_sample(sample_points, query, weight, H_feat, W_feat)
+    sample_points_inverse = sample_points.detach()
+    sample_points_inverse = (sample_points_inverse+1.0)/2.0
+    sample_points_inverse = sample_points_inverse.view(B,n_groups,n_queries,n_points,2)
+    sample_points_inverse = sample_points_inverse.permute(0,2,1,3,4)
+    sample_points_inverse = sample_points_inverse.contiguous()
+    sample_points_inverse = sample_points_inverse.view(B,n_queries,n_groups*n_points, 2)
+    sample_points_inverse[:,:,:,0] = sample_points_inverse[:,:,:,0] * (H_feat)
+    sample_points_inverse[:,:,:,1] = sample_points_inverse[:,:,:,1] * (W_feat)
+    weight = weight.detach().view(B, n_groups, n_queries, n_points).permute(0,2,1,3).contiguous().view(B, n_queries,-1)
+    inverse_feats = inverse_sample(sample_points_inverse, query, weight, H_feat, W_feat)
 
     return out, inverse_feats
 

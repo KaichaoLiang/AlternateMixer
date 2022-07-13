@@ -106,6 +106,9 @@ class AlternateSamplingMixing(BaseModule):
 
         self.query_fn = nn.Linear(self.content_dim, self.content_dim)
         self.query_fn_norm = build_norm_layer(dict(type='LN'),self.content_dim)[1]
+        self.query_fn2 = nn.Linear(self.content_dim, self.content_dim)
+        self.query_fn_norm2 = build_norm_layer(dict(type='LN'),self.content_dim)[1]
+        self.query_activate = build_activation_layer(dict(type='ReLU', inplace=True))
         self.init_weights()
 
     @torch.no_grad()
@@ -149,8 +152,14 @@ class AlternateSamplingMixing(BaseModule):
             torch.save(
                 sample_points_xyz, 'demo/sample_xy_{}.pth'.format(AlternateSamplingMixing._DEBUG))
 
-        query_fn = self.query_fn(query_feat)
+        query_fn = query_feat.detach()
+        query_fn = self.query_fn(query_fn)
         query_fn = self.query_fn_norm(query_fn)
+        query_fn = self.query_activate(query_fn)
+        query_fn = self.query_fn2(query_fn)
+        query_fn = self.query_fn_norm2(query_fn)
+        query_fn = self.query_activate(query_fn)
+
         sampled_feature, sampled_fp = sampling_3d_alternate(sample_points_xyz, x, query_fn,
                                          featmap_strides=featmap_strides,
                                          n_points=self.in_points,
