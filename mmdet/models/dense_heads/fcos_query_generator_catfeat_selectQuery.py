@@ -86,7 +86,7 @@ class FcosQueryGeneratorCatFeatSelectQuery(AnchorFreeHead):
                       ct_cfg=dict(type='ReLU', inplace=True),
                       dropout=0.0)
         self.ffn_norm = build_norm_layer(dict(type='LN'), self.feat_channels)[1]
-        self.query_prob_layer = nn.Linear(self.feat_channels, self.query_embed)
+        self.query_prob_layer = nn.Linear(self.feat_channels*2, self.query_embed)
         self.soft_max = nn.Softmax(dim=-1)
         self.mix_query_layer = nn.Linear(self.query_embed, self.feat_channels)
 
