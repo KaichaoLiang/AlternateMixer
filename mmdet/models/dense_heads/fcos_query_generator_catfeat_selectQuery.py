@@ -12,6 +12,7 @@ import torch.nn as nn
 from mmcv.cnn import Scale
 from mmcv.runner import force_fp32
 from mmcv.cnn import build_norm_layer
+from mmcv.cnn.bricks.transformer import FFN
 from mmdet.core import multi_apply, reduce_mean
 from ..builder import HEADS, build_loss
 from .anchor_free_head import AnchorFreeHead
@@ -20,7 +21,7 @@ INF = 1e8
 
 
 @HEADS.register_module()
-class FcosQueryGeneratorCatFeat(AnchorFreeHead):
+class FcosQueryGeneratorCatFeatSelectQuery(AnchorFreeHead):
     def __init__(self,
                  num_classes,
                  in_channels,
@@ -31,6 +32,7 @@ class FcosQueryGeneratorCatFeat(AnchorFreeHead):
                  norm_on_bbox=False,
                  centerness_on_reg=False,
                  maxk_num = 100,
+                 query_embed = 100,
                  cls_stack_conv=True,
                  reg_stack_conv=True,
                  loss_cls=dict(
@@ -61,6 +63,8 @@ class FcosQueryGeneratorCatFeat(AnchorFreeHead):
         self.norm_on_bbox = norm_on_bbox
         self.centerness_on_reg = centerness_on_reg
         self.maxk_num = maxk_num
+        self.query_embed = query_embed
+
         super().__init__(
             num_classes,
             in_channels,
@@ -78,8 +82,14 @@ class FcosQueryGeneratorCatFeat(AnchorFreeHead):
         super()._init_layers()
         self.conv_centerness = nn.Conv2d(self.feat_channels, 1, 3, padding=1)
         self.scales = nn.ModuleList([Scale(1.0) for _ in self.strides])
-        self.feat_projector = nn.Linear(self.feat_channels*2, self.feat_channels)
-        self.feat_norm = build_norm_layer(dict(type='LN'),self.feat_channels)[1]
+        self.ffn = FFN(self.feat_channels, 2048, 2,
+                      ct_cfg=dict(type='ReLU', inplace=True),
+                      dropout=0.0)
+        self.ffn_norm = build_norm_layer(dict(type='LN'), self.feat_channels)[1]
+        self.query_prob_layer = nn.Linear(self.feat_channels, self.query_embed)
+        self.soft_max = nn.Softmax(dim=-1)
+        self.mix_query_layer = nn.Linear(self.query_embed, self.feat_channels)
+
     
     def forward_train(self,
                       x,
@@ -554,9 +564,12 @@ class FcosQueryGeneratorCatFeat(AnchorFreeHead):
         select_features = torch.cat(select_features,dim=0)
         select_bboxes = torch.cat(select_bboxes,dim=0)
         
-        select_features = self.feat_projector(select_features)
-        select_features = self.feat_norm(select_features)
-        
+        select_features = self.ffn(select_features)
+        select_features = self.ffn_norm(select_features)
+        select_features = self.query_prob_layer(select_features)
+        select_features = self.soft_max(select_features)
+        select_features = self.mix_query_layer(select_features)
+
         xs = select_points[:,:,0]
         ys = select_points[:,:,1]
         
