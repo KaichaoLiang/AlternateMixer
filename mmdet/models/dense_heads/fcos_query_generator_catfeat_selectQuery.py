@@ -568,7 +568,6 @@ class FcosQueryGeneratorCatFeatSelectQuery(AnchorFreeHead):
         select_features = self.ffn_norm(select_features)
         select_features = self.query_prob_layer(select_features)
         select_features = self.soft_max(select_features)
-        print(select_features.shape)
         select_features = self.mix_query_layer(select_features)
 
         xs = select_points[:,:,0]
