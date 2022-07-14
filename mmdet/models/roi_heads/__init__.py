@@ -30,7 +30,7 @@ from .iteratemixer_decoder_withfcos import IterateMixerDecoderFcos
 from .iteratemixer_decoder_selfconv import IterateMixerDecoderSelfConv
 from .iteratemixer_decoder_activate import IterateMixerDecoderActivate
 from .iteratemixer_decoder_dualconv import IterateMixerDecoderDualConv
-from .iteratemixer_decoder_adapt_largeconv import iteratemixer_decoder_adapt_largeconv
+from .iteratemixer_decoder_adapt_largeconv import IterateMixerDecoderAdaptLargeConv
 from .alternatemixer_decoder import AlternateMixerDecoder
 __all__ = [
     'BaseRoIHead', 'CascadeRoIHead', 'DoubleHeadRoIHead', 'MaskScoringRoIHead',
@@ -45,5 +45,5 @@ __all__ = [
     'FeatureRelayHead', 'GlobalContextHead', 'AdaMixerDecoder','IterateMixerDecoder'
     ,'IterateMixerDecoder','IterateMixerDecoderFcos','IterateMixerDecoderSelfConv',
     'IterateMixerDecoderActivate', 'IterateMixerDecoderFFN', 'IterateMixerDecoderDualConv',
-    'iteratemixer_decoder_adapt_largeconv','AlternateMixerDecoder'
+    'IterateMixerDecoderAdaptLargeConv','AlternateMixerDecoder'
 ]
