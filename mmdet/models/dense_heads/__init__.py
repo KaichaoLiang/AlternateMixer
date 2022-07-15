@@ -46,6 +46,7 @@ from .fcos_query_generator_mixquery import FcosQueryGeneratorMixQuery
 from .fcosconstraint_query_generator import FcosConstraintQueryGenerator
 from .fcos_query_generator_catfeat import FcosQueryGeneratorCatFeat
 from .fcos_query_generator_catfeat_selectQuery import FcosQueryGeneratorCatFeatSelectQuery
+from .fcos_query_generator_attQuery import FcosQueryGeneratorAttQuery
 from .maxk_query_generator import MaxkGenerator
 __all__ = [
     'AnchorFreeHead', 'AnchorHead', 'GuidedAnchorHead', 'FeatureAdaption',
@@ -61,5 +62,5 @@ __all__ = [
     'DecoupledSOLOLightHead', 'LADHead', 'TOODHead', 'MaskFormerHead',
     'Mask2FormerHead','InitialQueryGenerator','FcosQueryGeneratorWithBox',
     'FcosQueryGeneratorMixQuery','FcosQueryGeneratorClsFeat','FcosConstraintQueryGenerator',
-    'MaxkGenerator','FcosQueryGeneratorCatFeat','FcosQueryGeneratorCatFeatSelectQuery'
+    'MaxkGenerator','FcosQueryGeneratorCatFeat','FcosQueryGeneratorCatFeatSelectQuery','FcosQueryGeneratorAttQuery'
 ]

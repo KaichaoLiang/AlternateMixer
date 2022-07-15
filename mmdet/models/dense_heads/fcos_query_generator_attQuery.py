@@ -12,7 +12,7 @@ import torch.nn as nn
 from mmcv.cnn import Scale
 from mmcv.runner import force_fp32
 from mmcv.cnn import build_norm_layer
-from mmcv.cnn.bricks.transformer import FFN
+from mmcv.cnn.bricks.transformer import FFN, MultiheadAttention
 from mmdet.core import multi_apply, reduce_mean
 from ..builder import HEADS, build_loss
 from .anchor_free_head import AnchorFreeHead
@@ -21,7 +21,7 @@ INF = 1e8
 
 
 @HEADS.register_module()
-class FcosQueryGeneratorCatFeatAttentionQuery(AnchorFreeHead):
+class FcosQueryGeneratorAttQuery(AnchorFreeHead):
     def __init__(self,
                  num_classes,
                  in_channels,
@@ -32,6 +32,7 @@ class FcosQueryGeneratorCatFeatAttentionQuery(AnchorFreeHead):
                  norm_on_bbox=False,
                  centerness_on_reg=False,
                  maxk_num = 100,
+                 num_query = 100,
                  query_embed = 100,
                  cls_stack_conv=True,
                  reg_stack_conv=True,
@@ -64,6 +65,8 @@ class FcosQueryGeneratorCatFeatAttentionQuery(AnchorFreeHead):
         self.centerness_on_reg = centerness_on_reg
         self.maxk_num = maxk_num
         self.query_embed = query_embed
+        self.num_query = num_query
+
 
         super().__init__(
             num_classes,
@@ -82,15 +85,11 @@ class FcosQueryGeneratorCatFeatAttentionQuery(AnchorFreeHead):
         super()._init_layers()
         self.conv_centerness = nn.Conv2d(self.feat_channels, 1, 3, padding=1)
         self.scales = nn.ModuleList([Scale(1.0) for _ in self.strides])
-        self.projector = FFN(self.feat_channels*2, 1024, 2,
-                      ct_cfg=dict(type='ReLU', inplace=True),
-                      dropout=0.0)
-        self.projector_norm = build_norm_layer(dict(type='LN'), self.feat_channels*2)[1]
-        self.query_prob_layer = nn.Linear(self.feat_channels*2, self.query_embed)
-        self.soft_max = nn.Softmax(dim=-1)
-        self.mix_query_layer = nn.Linear(self.query_embed, self.feat_channels)
+        self.projector = nn.Linear(self.feat_channels, self.feat_channels)
+        self.attention = MultiheadAttention(self.feat_channels, 8, 0.0)
+        self.attention_norm = build_norm_layer(dict(type='LN'), self.feat_channels)[1]
+        self.init_content_features = nn.Embedding(self.num_query, self.feat_channels)
 
-    
     def forward_train(self,
                       x,
                       img_metas,
@@ -111,7 +110,6 @@ class FcosQueryGeneratorCatFeatAttentionQuery(AnchorFreeHead):
         cls_scores = outs[0]
         bbox_preds = outs[1]
         centernesses = outs[2]
-        cat_features = outs[3]
         outs=outs[:3]
         if gt_labels is None:
             loss_inputs = outs + (gt_bboxes, img_metas)
@@ -126,7 +124,7 @@ class FcosQueryGeneratorCatFeatAttentionQuery(AnchorFreeHead):
             for s in range(len(self.strides)):
                 #bbox_preds[s] = bbox_preds[s].clamp(min=0)
                 bbox_preds[s]*=bbox_preds[s]*self.strides[s]
-        xyzr, init_content_features, imgs_whwh = self.fcos_feature_proposal(cat_features, img_metas, cls_scores, bbox_preds, centernesses)
+        xyzr, init_content_features, imgs_whwh = self.fcos_feature_proposal(x, img_metas, cls_scores, bbox_preds, centernesses)
 
         return losses,xyzr, init_content_features, imgs_whwh
        
@@ -137,12 +135,11 @@ class FcosQueryGeneratorCatFeatAttentionQuery(AnchorFreeHead):
         cls_scores = outs[0]
         bbox_preds = outs[1]
         centernesses = outs[2]
-        cat_features = outs[3]
         if self.norm_on_bbox:
             for s in range(len(self.strides)):
                 #bbox_preds[s] = bbox_preds[s].clamp(min=0)
                 bbox_preds[s]*=bbox_preds[s]*self.strides[s]
-        xyzr, init_content_features, imgs_whwh = self.fcos_feature_proposal(cat_features, img_metas, cls_scores, bbox_preds, centernesses)
+        xyzr, init_content_features, imgs_whwh = self.fcos_feature_proposal(x, img_metas, cls_scores, bbox_preds, centernesses)
 
         return xyzr, init_content_features, imgs_whwh
 
@@ -198,8 +195,7 @@ class FcosQueryGeneratorCatFeatAttentionQuery(AnchorFreeHead):
         else:
             bbox_pred = bbox_pred.exp()
         
-        cat_feat = torch.cat([cls_feat,reg_feat],dim=1)
-        return cls_score, bbox_pred, centerness, cat_feat
+        return cls_score, bbox_pred, centerness
 
     @force_fp32(apply_to=('cls_scores', 'bbox_preds', 'centernesses'))
     def loss(self,
@@ -505,9 +501,19 @@ class FcosQueryGeneratorCatFeatAttentionQuery(AnchorFreeHead):
         return torch.cat(bbox_new, dim=-1)
     
     def fcos_feature_proposal(self, x, img_metas, cls_scores, bbox_preds, centernesses):
+        
+
         num_imgs = cls_scores[0].size(0)
         batch_w = img_metas[0]['batch_shape'][0]
         batch_h = img_metas[0]['batch_shape'][1]
+
+        init_content_features = self.init_content_features.weight.clone()
+        init_content_features = init_content_features[None].expand(
+            num_imgs, *init_content_features.size())
+
+        init_content_features = torch.layer_norm(
+            init_content_features, normalized_shape=[init_content_features.size(-1)])
+            
         featmap_sizes = [featmap.size()[-2:] for featmap in cls_scores]
         all_level_points = self.prior_generator.grid_priors(
             featmap_sizes,
@@ -564,11 +570,11 @@ class FcosQueryGeneratorCatFeatAttentionQuery(AnchorFreeHead):
         select_features = torch.cat(select_features,dim=0)
         select_bboxes = torch.cat(select_bboxes,dim=0)
         
-        select_features = self.ffn(select_features)
-        select_features = self.ffn_norm(select_features)
-        select_features = self.query_prob_layer(select_features)
-        select_features = self.soft_max(select_features)
-        select_features = self.mix_query_layer(select_features)
+        select_features = self.projector(select_features)
+        select_features = torch.layer_norm(
+            select_features, normalized_shape=[select_features.size(-1)])
+        select_features = self.attention(query=select_features,key=init_content_features,value=init_content_features)
+        select_features = self.attention_norm(select_features)
 
         xs = select_points[:,:,0]
         ys = select_points[:,:,1]
