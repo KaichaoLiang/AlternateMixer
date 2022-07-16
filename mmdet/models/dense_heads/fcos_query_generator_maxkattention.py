@@ -507,6 +507,9 @@ class FcosQueryGeneratorMaxKAttention(AnchorFreeHead):
         return torch.cat(bbox_new, dim=-1)
     
     def fcos_feature_proposal(self, x, img_metas, cls_scores, bbox_preds, centernesses):
+        proposals = self.init_proposal_bboxes.weight.clone()
+        proposals = self.bbox_cxcywh_to_xyxy(proposals)
+
         num_imgs = cls_scores[0].size(0)
         imgs_whwh = []
         for meta in img_metas:
@@ -580,10 +583,6 @@ class FcosQueryGeneratorMaxKAttention(AnchorFreeHead):
             init_content_features, normalized_shape=[init_content_features.size(-1)])
         init_content_features = self.attention(query=init_content_features,key=select_features,value=select_features)
         init_content_features = self.attention_norm(init_content_features)
-
-        proposals = self.init_proposal_bboxes.weight.clone()
-        proposals = self.bbox_cxcywh_to_xyxy(proposals)
-
        
         return xyzr, init_content_features, imgs_whwh
 
