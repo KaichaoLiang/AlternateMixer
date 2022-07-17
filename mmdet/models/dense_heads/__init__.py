@@ -48,6 +48,7 @@ from .fcos_query_generator_catfeat import FcosQueryGeneratorCatFeat
 from .fcos_query_generator_catfeat_selectQuery import FcosQueryGeneratorCatFeatSelectQuery
 from .fcos_query_generator_attQuery import FcosQueryGeneratorAttQuery
 from .fcos_query_generator_maxkattention import FcosQueryGeneratorMaxKAttention
+from .fcos_query_generator_maxkattentiondetach import FcosQueryGeneratorMaxKAttentionDetach
 from .maxk_query_generator import MaxkGenerator
 __all__ = [
     'AnchorFreeHead', 'AnchorHead', 'GuidedAnchorHead', 'FeatureAdaption',
@@ -64,5 +65,5 @@ __all__ = [
     'Mask2FormerHead','InitialQueryGenerator','FcosQueryGeneratorWithBox',
     'FcosQueryGeneratorMixQuery','FcosQueryGeneratorClsFeat','FcosConstraintQueryGenerator',
     'MaxkGenerator','FcosQueryGeneratorCatFeat','FcosQueryGeneratorCatFeatSelectQuery','FcosQueryGeneratorAttQuery',
-    'FcosQueryGeneratorMaxKAttention'
+    'FcosQueryGeneratorMaxKAttention','FcosQueryGeneratorMaxKAttentionDetach'
 ]
