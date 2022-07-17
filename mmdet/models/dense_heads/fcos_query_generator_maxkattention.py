@@ -85,7 +85,7 @@ class FcosQueryGeneratorMaxKAttention(AnchorFreeHead):
         super()._init_layers()
         self.conv_centerness = nn.Conv2d(self.feat_channels, 1, 3, padding=1)
         self.scales = nn.ModuleList([Scale(1.0) for _ in self.strides])
-        self.projector = nn.Linear(self.feat_channels, self.feat_channels)
+        self.projector = MultiheadAttention(self.feat_channels, 8, 0.0, batch_first=True)
         self.attention = MultiheadAttention(self.feat_channels, 8, 0.0, batch_first=True)
         self.attention_norm = build_norm_layer(dict(type='LN'), self.feat_channels)[1]
         self.init_content_features = nn.Embedding(self.num_query, self.feat_channels)
@@ -563,26 +563,55 @@ class FcosQueryGeneratorMaxKAttention(AnchorFreeHead):
         # max_k selection, image wise
         sort_score, sort_id = torch.sort(flatten_totalscore,dim=-1,descending=True) 
         select_features = []
+        select_points = []
+
         for id in range(num_imgs):
             ind_select = sort_id[id,:self.maxk_num]
             flatten_feature = flatten_features[id,:,:]
             flatten_point = flatten_points[id,:,:]
             flatten_bbox_pred = flatten_bbox_preds[id,:,:]
+            
             select_feature = flatten_feature[ind_select].clone().view(1,self.maxk_num,x[0].size(1))
+            select_point = flatten_point[ind_select].clone().view(1,self.maxk_num,2)
 
+            select_points.append(select_point)
             select_features.append(select_feature)
         
+        select_points = torch.cat(select_points,dim=0)
+        
         select_features = torch.cat(select_features,dim=0)
-        select_features = self.projector(select_features)
+        
+        pe = position_embedding(select_points, self.feat_channels)
+        select_features = self.projector(select_features+pe)
         select_features = torch.layer_norm(
             select_features, normalized_shape=[select_features.size(-1)])
+
         init_content_features = self.init_content_features.weight.clone()
         init_content_features = init_content_features[None].expand(
             num_imgs, *init_content_features.size())
         init_content_features = torch.layer_norm(
             init_content_features, normalized_shape=[init_content_features.size(-1)])
-        init_content_features = self.attention(query=init_content_features,key=select_features,value=select_features)
+        
+        pointsOut = xyzr[...,0:2]
+        peOut = position_embedding(pointsOut,self.feat_channels)
+        init_content_features_att = init_content_features + peOut
+        init_content_features_att = self.attention(query=init_content_features_att,key=select_features+pe,value=select_features+pe)
+        init_content_features = init_content_features + init_content_features_att
         init_content_features = self.attention_norm(init_content_features)
        
         return xyzr, init_content_features, imgs_whwh
+
+def position_embedding(token_xy, num_feats, temperature=10000):
+    num_feats/=2
+    assert token_xy.size(-1) == 2
+    term = token_xy.new_tensor([1000, 1000, 1, 1]).view(1, 1, -1)
+    token_xy = token_xy / term
+    dim_t = torch.arange(
+        num_feats, dtype=torch.float32, device=token_xy.device)
+    dim_t = (temperature ** (2 * (dim_t // 2) / num_feats)).view(1, 1, 1, -1)
+    pos_x = token_xy[..., None] / dim_t
+    pos_x = torch.stack(
+        (pos_x[..., 0::2].sin(), pos_x[..., 1::2].cos()),
+        dim=4).flatten(2)
+    return pos_x
 
