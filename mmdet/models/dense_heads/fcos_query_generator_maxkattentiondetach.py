@@ -167,8 +167,10 @@ class FcosQueryGeneratorMaxKAttentionDetach(AnchorFreeHead):
                 centernesses (list[Tensor]): centerness for each scale level, \
                     each is a 4D-tensor, the channel number is num_points * 1.
         """
-        feats = feats.detach()
-        return multi_apply(self.forward_single, feats, self.scales,
+        feat_outs = []
+        for f in feats:
+            feat_outs.append(f.detach())
+        return multi_apply(self.forward_single, feat_outs, self.scales,
                            self.strides)
 
     def forward_single(self, x, scale, stride):
