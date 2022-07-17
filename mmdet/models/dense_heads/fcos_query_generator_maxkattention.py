@@ -604,7 +604,7 @@ class FcosQueryGeneratorMaxKAttention(AnchorFreeHead):
 def position_embedding(token_xy, num_feats, temperature=10000):
     num_feats/=2
     assert token_xy.size(-1) == 2
-    term = token_xy.new_tensor([1000, 1000, 1, 1]).view(1, 1, -1)
+    term = token_xy.new_tensor([1000, 1000]).view(1, 1, -1)
     token_xy = token_xy / term
     dim_t = torch.arange(
         num_feats, dtype=torch.float32, device=token_xy.device)
