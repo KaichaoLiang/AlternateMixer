@@ -67,7 +67,7 @@ def make_sample_points(offset, num_group, xyzr):
     return torch.cat([sample_yx, sample_lvl], dim=-1)
 
 
-class AdaptiveSamplingMixingCat(BaseModule):
+class AdaptiveSamplingMixingCatPe(BaseModule):
     _DEBUG = 0
 
     def __init__(self,
@@ -77,7 +77,7 @@ class AdaptiveSamplingMixingCat(BaseModule):
                  content_dim=256,
                  feat_channels=None
                  ):
-        super(AdaptiveSamplingMixingCat, self).__init__()
+        super(AdaptiveSamplingMixingCatPe, self).__init__()
         self.in_points = in_points
         self.out_points = out_points
         self.n_groups = n_groups
@@ -105,7 +105,7 @@ class AdaptiveSamplingMixingCat(BaseModule):
 
     @torch.no_grad()
     def init_weights(self):
-        super(AdaptiveSamplingMixingCat, self).init_weights()
+        super(AdaptiveSamplingMixingCatPe, self).init_weights()
         nn.init.zeros_(self.sampling_offset_generator[-1].weight)
         nn.init.zeros_(self.sampling_offset_generator[-1].bias)
 
@@ -133,17 +133,17 @@ class AdaptiveSamplingMixingCat(BaseModule):
 
         self.adaptive_mixing.init_weights()
 
-    def forward(self, x, query_feat, query_xyzr, cat_feats, featmap_strides):
+    def forward(self, x, query_feat, query_xyzr, cat_feats, cat_pes, featmap_strides):
         offset = self.sampling_offset_generator(query_feat)
 
         sample_points_xyz = make_sample_points(
             offset, self.n_groups * self.in_points,
             query_xyzr,
         )
-
+        
         if DEBUG:
             torch.save(
-                sample_points_xyz, 'demo/sample_xy_{}.pth'.format(AdaptiveSamplingMixingCat._DEBUG))
+                sample_points_xyz, 'demo/sample_xy_{}.pth'.format(AdaptiveSamplingMixingCatPe._DEBUG))
 
         sampled_feature, _ = sampling_3d(sample_points_xyz, x,
                                          featmap_strides=featmap_strides,
@@ -153,25 +153,32 @@ class AdaptiveSamplingMixingCat(BaseModule):
         sampled_feature = sampled_feature.view(B*N*G, P, dims)
         
         #self attention added by LKC
+        print('sample xyz shape',sample_points_xyz.shape)
+        current_xyz = sample_points_xyz.view(B*N*G, P, dims,3)
+        current_pe = position_embedding_3d(current_xyz, dims)
+        print('pe shape',current_pe.shape)
+
         if cat_feats ==None:
             cat_feats = sampled_feature
+            cat_pes_out = current_pe
         else:
             cat_feats = torch.cat([cat_feats, sampled_feature],1)
+            cat_pes_out = torch.cat([cat_pes, current_pe],1)
             #shape B*n_queries*n_groups, n_points*(L), n_channels/n_groups
-        cat_feats_out = self.selfattention(cat_feats) #+pe
+        cat_feats_out = self.selfattention(cat_feats+cat_pes_out) #+pe
         cat_feats_out = self.attention_norm(cat_feats_out)
         sampled_feature = cat_feats_out[:,-P:,:]
         sampled_feature = sampled_feature.view(B,N,G,P,dims)
         
         if DEBUG:
             torch.save(
-                sampled_feature, 'demo/sample_feature_{}.pth'.format(AdaptiveSamplingMixingCat._DEBUG))
-            AdaptiveSamplingMixingCat._DEBUG += 1
+                sampled_feature, 'demo/sample_feature_{}.pth'.format(AdaptiveSamplingMixingCatPe._DEBUG))
+            AdaptiveSamplingMixingCatPe._DEBUG += 1
 
         query_feat = self.adaptive_mixing(sampled_feature, query_feat)
         query_feat = self.norm(query_feat)
 
-        return query_feat, cat_feats_out
+        return query_feat, cat_feats_out, cat_pes_out
 
 
 def position_embedding(token_xyzr, num_feats, temperature=10000):
@@ -187,8 +194,20 @@ def position_embedding(token_xyzr, num_feats, temperature=10000):
         dim=4).flatten(2)
     return pos_x
 
+def position_embedding_3d(token_xyz, num_feats, temperature=10000):
+    assert token_xyz.size(-1) == 3
+    term = token_xyz.new_tensor([1000, 1000, 1]).view(1, 1, -1)
+    token_xyz = token_xyz / term
+    dim_t = torch.arange(
+        num_feats, dtype=torch.float32, device=token_xyz.device)
+    dim_t = (temperature ** (2 * (dim_t // 2) / num_feats)).view(1, 1, 1, -1)
+    pos_x = token_xyz[..., None] / dim_t
+    pos_x = pos_x[..., 0].sin()+ pos_x[..., 1].cos()+pos_x[..., 2].sin().flatten(2)
+    return pos_x
+
+
 @HEADS.register_module()
-class AdaMixerDecoderStageCat(BBoxHead):
+class AdaMixerDecoderStageCatPe(BBoxHead):
     _DEBUG = -1
 
     def __init__(self,
@@ -210,7 +229,7 @@ class AdaMixerDecoderStageCat(BBoxHead):
                  **kwargs):
         assert init_cfg is None, 'To prevent abnormal initialization ' \
                                  'behavior, init_cfg is not allowed to be set'
-        super(AdaMixerDecoderStageCat, self).__init__(
+        super(AdaMixerDecoderStageCatPe, self).__init__(
             num_classes=num_classes,
             reg_decoded_bbox=True,
             reg_class_agnostic=True,
@@ -260,7 +279,7 @@ class AdaMixerDecoderStageCat(BBoxHead):
         self.n_groups = n_groups
         self.out_points = out_points
 
-        self.sampling_n_mixing = AdaptiveSamplingMixingCat(
+        self.sampling_n_mixing = AdaptiveSamplingMixingCatPe(
             content_dim=content_dim,  # query dim
             feat_channels=feat_channels,
             in_points=self.in_points,
@@ -272,7 +291,7 @@ class AdaMixerDecoderStageCat(BBoxHead):
 
     @torch.no_grad()
     def init_weights(self):
-        super(AdaMixerDecoderStageCat, self).init_weights()
+        super(AdaMixerDecoderStageCatPe, self).init_weights()
         for n, m in self.named_modules():
             if isinstance(m, nn.Linear):
                 m.reset_parameters()
@@ -295,10 +314,11 @@ class AdaMixerDecoderStageCat(BBoxHead):
                 query_xyzr,
                 query_content,
                 cat_feats,
+                cat_pes,
                 featmap_strides):
         N, n_query = query_content.shape[:2]
 
-        AdaMixerDecoderStageCat._DEBUG += 1
+        AdaMixerDecoderStageCatPe._DEBUG += 1
 
         with torch.no_grad():
             rois = decode_box(query_xyzr)
@@ -323,8 +343,8 @@ class AdaMixerDecoderStageCat(BBoxHead):
         query_content = query_content.permute(1, 0, 2)
 
         ''' adaptive 3D sampling and mixing '''
-        query_content, cat_feats_out = self.sampling_n_mixing(
-            x, query_content, query_xyzr, cat_feats, featmap_strides)
+        query_content, cat_feats_out, cat_pes_out = self.sampling_n_mixing(
+            x, query_content, query_xyzr, cat_feats, cat_pes, featmap_strides)
 
         # FFN
         query_content = self.ffn_norm(self.ffn(query_content))
@@ -340,7 +360,7 @@ class AdaMixerDecoderStageCat(BBoxHead):
         cls_score = self.fc_cls(cls_feat).view(N, n_query, -1)
         xyzr_delta = self.fc_reg(reg_feat).view(N, n_query, -1)
 
-        return cls_score, xyzr_delta, query_content.view(N, n_query, -1), cat_feats_out
+        return cls_score, xyzr_delta, query_content.view(N, n_query, -1), cat_feats_out, cat_pes_out
 
     def refine_xyzr(self, xyzr, xyzr_delta, return_bbox=True):
         z = xyzr[..., 2:3]
