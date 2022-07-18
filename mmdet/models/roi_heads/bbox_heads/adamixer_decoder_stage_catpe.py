@@ -202,6 +202,7 @@ def position_embedding_3d(token_xyz, num_feats, temperature=10000):
         num_feats, dtype=torch.float32, device=token_xyz.device)
     dim_t = (temperature ** (2 * (dim_t // 2) / num_feats)).view(1, 1, 1, -1)
     pos_x = token_xyz[..., None] / dim_t
+    print('pos_x shape', pos_x.shape)
     pos_x = pos_x[..., 0].sin()+ pos_x[..., 1].cos()+pos_x[..., 2].sin().flatten(2)
     return pos_x
 
