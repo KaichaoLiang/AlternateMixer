@@ -90,7 +90,7 @@ class AdaptiveSamplingMixingCat(BaseModule):
 
         self.norm = nn.LayerNorm(content_dim)
 
-        self.selfattention = MultiheadAttention(self.feat_channels/self.n_groups, 2, 0.0, batch_first=True)
+        self.selfattention = MultiheadAttention(64, 2, 0.0, batch_first=True)
         self.attention_norm = build_norm_layer(dict(type='LN'), self.feat_channels)[1]
 
         self.adaptive_mixing = AdaptiveMixing(
