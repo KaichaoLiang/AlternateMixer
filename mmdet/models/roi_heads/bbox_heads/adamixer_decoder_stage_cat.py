@@ -160,8 +160,9 @@ class AdaptiveSamplingMixingCat(BaseModule):
             #shape B*n_queries*n_groups, n_points*(L), n_channels/n_groups
         cat_feats_out = self.selfattention(cat_feats) #+pe
         cat_feats_out = self.attention_norm(cat_feats_out)
-        sampled_feature = cat_feats_out[:,-P,:]
+        sampled_feature = cat_feats_out[:,-P:,:]
         sampled_feature = sampled_feature.view(B,N,G,P,dims)
+        print(cat_feats_out.shape)
         
 
         if DEBUG:
