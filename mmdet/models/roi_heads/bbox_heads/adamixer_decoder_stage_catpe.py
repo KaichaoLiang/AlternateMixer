@@ -154,7 +154,7 @@ class AdaptiveSamplingMixingCatPe(BaseModule):
         
         #self attention added by LKC
         print('sample xyz shape',sample_points_xyz.shape)
-        current_xyz = sample_points_xyz.view(B*N*G, P, dims,3)
+        current_xyz = sample_points_xyz.view(B*N*G, P,3)
         current_pe = position_embedding_3d(current_xyz, dims)
         print('pe shape',current_pe.shape)
 
