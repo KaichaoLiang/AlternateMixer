@@ -153,10 +153,8 @@ class AdaptiveSamplingMixingCatPe(BaseModule):
         sampled_feature = sampled_feature.view(B*N*G, P, dims)
         
         #self attention added by LKC
-        print('sample xyz shape',sample_points_xyz.shape)
         current_xyz = sample_points_xyz.view(B*N*G, P,3)
         current_pe = position_embedding_3d(current_xyz, dims)
-        print('pe shape',current_pe.shape)
 
         if cat_feats ==None:
             cat_feats = sampled_feature
@@ -202,10 +200,8 @@ def position_embedding_3d(token_xyz, num_feats, temperature=10000):
         num_feats, dtype=torch.float32, device=token_xyz.device)
     dim_t = (temperature ** (2 * (dim_t // 2) / num_feats)).view(1, 1, 1, -1)
     pos_x = token_xyz[..., None] / dim_t
-    print('pos_x shape', pos_x.shape)
     pos_x = pos_x[:,:, 0,:].sin()+ pos_x[:,:, 1,:].cos()+pos_x[:,:, 2,:].sin()
     pos_x = pos_x.flatten(2)
-    print('pos_x shape', pos_x.shape)
     return pos_x
 
 
