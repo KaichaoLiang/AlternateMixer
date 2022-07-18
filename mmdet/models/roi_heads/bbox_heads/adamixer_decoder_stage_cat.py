@@ -101,7 +101,7 @@ class AdaptiveSamplingMixingCat(BaseModule):
             n_groups=self.n_groups,
         )
 
-        self.init_weights()
+        #self.init_weights()
 
     @torch.no_grad()
     def init_weights(self):
