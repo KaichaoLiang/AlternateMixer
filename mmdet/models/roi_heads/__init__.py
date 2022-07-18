@@ -23,6 +23,7 @@ from .sparse_roi_head import SparseRoIHead
 from .standard_roi_head import StandardRoIHead
 from .trident_roi_head import TridentRoIHead
 from .adamixer_decoder import AdaMixerDecoder
+from .adamixer_decoder_cat import AdaMixerDecoderCat
 from .iteratemixer_decoder import IterateMixerDecoder
 from .iteratemixer_decoder_ffn import IterateMixerDecoderFFN
 from .iteratemixer_decoder_adapt import IterateMixerDecoderAdapt
@@ -45,5 +46,5 @@ __all__ = [
     'FeatureRelayHead', 'GlobalContextHead', 'AdaMixerDecoder','IterateMixerDecoder'
     ,'IterateMixerDecoder','IterateMixerDecoderFcos','IterateMixerDecoderSelfConv',
     'IterateMixerDecoderActivate', 'IterateMixerDecoderFFN', 'IterateMixerDecoderDualConv',
-    'IterateMixerDecoderAdaptLargeConv','AlternateMixerDecoder'
+    'IterateMixerDecoderAdaptLargeConv','AlternateMixerDecoder','AdaMixerDecoderCat'
 ]
