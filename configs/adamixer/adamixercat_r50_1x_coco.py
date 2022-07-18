@@ -107,14 +107,14 @@ model = dict(
         num_query=num_query,
         content_dim=QUERY_DIM),
     roi_head=dict(
-        type='AdaMixerDecoder',
+        type='AdaMixerDecoderCat',
         featmap_strides=[4, 8, 16, 32],
         num_stages=num_stages,
         stage_loss_weights=[1] * num_stages,
         content_dim=QUERY_DIM,
         bbox_head=[
             dict(
-                type='AdaMixerDecoderStage',
+                type='AdaMixerDecoderStageCat',
                 num_classes=80,
                 num_ffn_fcs=2,
                 num_heads=8,
