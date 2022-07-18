@@ -115,7 +115,6 @@ model = dict(
         bbox_head=[
             dict(
                 type='AdaMixerDecoderStageCat',
-                scales=4,
                 num_classes=80,
                 num_ffn_fcs=2,
                 num_heads=8,
