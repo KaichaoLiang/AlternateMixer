@@ -80,7 +80,7 @@ def make_sample_points_secondstage(offset, num_group, xyz):
     
     roi_lvl = xyz[..., 2:3].view(B, L, 1, 1, 1)
 
-    offset_yx = offset[..., :2].view(B, L, 1, 1, 2)
+    offset_yx = offset[..., :2]
     sample_yx = roi_cc.contiguous().view(B, L, 1, 1, 2) \
         + offset_yx
 
