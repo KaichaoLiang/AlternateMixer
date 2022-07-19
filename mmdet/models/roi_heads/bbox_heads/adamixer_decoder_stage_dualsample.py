@@ -214,7 +214,7 @@ class AdaptiveSamplingMixingDualSample(nn.Module):
             feat_channels=self.feat_channels,
             in_points=int(self.in_points/4),
             out_points=int(self.out_points/16),
-            n_groups=self.n_groups
+            n_groups=1
         )
 
         self.init_weights()
