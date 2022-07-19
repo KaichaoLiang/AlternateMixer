@@ -143,8 +143,6 @@ class AdaptiveMixing(nn.Module):
                 B*N, G, self.out_points, self.in_points)
 
             '''adaptive channel mixing'''
-            print('data shape', out.shape)
-            print('mtrix shape', M.shape)
             out = torch.matmul(out, M)
             out = F.layer_norm(out, [out.size(-2), out.size(-1)])
             out = self.act(out)
