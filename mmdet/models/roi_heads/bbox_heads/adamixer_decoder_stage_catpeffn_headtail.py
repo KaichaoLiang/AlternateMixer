@@ -103,9 +103,9 @@ class AdaptiveSamplingMixingCatPeFFNHeadTail(BaseModule):
         self.adaptive_mixing = AdaptiveMixing(
             self.feat_channels,
             query_dim=self.content_dim,
-            in_points=self.in_points,
+            in_points=self.in_points*2,
             out_points=self.out_points,
-            n_groups=self.n_groups*2,
+            n_groups=self.n_groups,
         )
 
         #self.init_weights()
