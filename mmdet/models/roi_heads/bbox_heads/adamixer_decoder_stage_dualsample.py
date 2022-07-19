@@ -268,7 +268,7 @@ class AdaptiveSamplingMixingDualSample(nn.Module):
         #B, n_queries, n_groups, n_points, n_channels
         B, N, G, P ,C = sampled_feature.size()
         sampled_feature = sampled_feature.view(B, N*G*P, C)
-        sampled_points_xyz = sampled_points_xyz.view(B, N*G*P, 3)
+        sample_points_xyz = sample_points_xyz.view(B, N*G*P, 3)
         
         sampled_feature = self.sampling_n_mixing_second(x, sampled_feature, sample_points_xyz, featmap_strides)
         sampled_feature = sampled_feature.view(B,N,G,P,C)
