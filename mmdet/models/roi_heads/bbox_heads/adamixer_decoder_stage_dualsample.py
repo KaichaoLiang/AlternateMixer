@@ -4,7 +4,7 @@ import torch.nn.functional as F
 from mmcv.cnn import (bias_init_with_prob, build_activation_layer,
                       build_norm_layer)
 from mmcv.cnn.bricks.transformer import FFN, MultiheadAttention
-from mmcv.runner import auto_fp16, force_fp32
+from mmcv.runner import auto_fp16, force_fp32, BaseModule
 
 from mmdet.core import multi_apply
 from mmdet.models.builder import HEADS, build_loss
@@ -89,52 +89,39 @@ def make_sample_points_secondstage(offset, num_group, xyz):
     return torch.cat([sample_yx, sample_lvl], dim=-1)
 
 
-class AdaptiveSamplingMixing(nn.Module):
+class AdaptiveSamplingMixing(BaseModule):
     _DEBUG = 0
 
     def __init__(self,
-                 in_points=32,
-                 out_points=128,
-                 n_groups=4,
-                 content_dim=256,
-                 feat_channels=None
+                 points=32,
+                 content_dim=64,
                  ):
         super(AdaptiveSamplingMixing, self).__init__()
-        self.in_points = in_points
-        self.out_points = out_points
-        self.n_groups = n_groups
+        self.points = points
         self.content_dim = content_dim
-        self.feat_channels = feat_channels if feat_channels is not None else self.content_dim
-
         self.sampling_offset_generator = nn.Sequential(
-            nn.Linear(content_dim, in_points * n_groups * 3)
+            nn.Linear(content_dim, points * 3)
         )
-
+        self.static_channel_mixing = nn.Linear(content_dim, content_dim)
+        self.static_spatial_mixing = nn.Linear(self.points, 1)
+        self.act = nn.ReLU(inplace=True)
         self.norm = nn.LayerNorm(content_dim)
-
-        self.adaptive_mixing = AdaptiveMixing(
-            self.feat_channels,
-            query_dim=self.content_dim,
-            in_points=self.in_points,
-            out_points=self.out_points,
-            n_groups=self.n_groups,
-        )
-
         self.init_weights()
 
     @torch.no_grad()
     def init_weights(self):
+        super(AdaptiveSamplingMixing,self).init_weights()
         nn.init.zeros_(self.sampling_offset_generator[-1].weight)
         nn.init.zeros_(self.sampling_offset_generator[-1].bias)
 
         bias = self.sampling_offset_generator[-1].bias.data.view(
-            self.n_groups, self.in_points, 3)
+            1, self.points, 3)
 
         # if in_points are squared number, then initialize
         # to sampling on grids regularly, not used in most
         # of our experiments.
-        if int(self.in_points ** 0.5) ** 2 == self.in_points:
-            h = int(self.in_points ** 0.5)
+        if int(self.points ** 0.5) ** 2 == self.points:
+            h = int(self.points ** 0.5)
             y = torch.linspace(-0.5, 0.5, h + 1) + 0.5 / h
             yp = y[:-1]
             y = yp.view(-1, 1).repeat(1, h)
@@ -149,33 +136,45 @@ class AdaptiveSamplingMixing(nn.Module):
         # initialize sampling delta z
         nn.init.constant_(bias[:, :, 2:3], -1.0)
 
-        self.adaptive_mixing.init_weights()
-
-    def forward(self, x, query_feat, query_xyz, featmap_strides):
+    def forward(self, x, query_feat, query_xyz, featmap_strides,f_query=100, f_group=4, f_point=32):
         offset = self.sampling_offset_generator(query_feat)
 
         sample_points_xyz = make_sample_points_secondstage(
-            offset, self.n_groups * self.in_points,
+            offset, self.points,
             query_xyz,
         )
 
         if DEBUG:
             torch.save(
                 sample_points_xyz, 'demo/sample_xy_{}.pth'.format(AdaptiveSamplingMixing._DEBUG))
+        B = sample_points_xyz.size(0)
+        
+        sample_points_xyz=sample_points_xyz.view(B, f_query, f_group, f_point, -1).permute(0,2,1,3,4).contiguous()
+        sample_points_xyz=sample_points_xyz.view(B*f_group, f_query*f_point, 1, self.points, 3)
+        
+        x_reshape = []
+        for f in x:
+            B, C, H, W = f.size()
+            f_reshape = f.view(B*f_group, -1, H, W)
+            x_reshape.append(f_reshape)
 
-        sampled_feature, _ = sampling_3d(sample_points_xyz, x,
+        sampled_feature, _ = sampling_3d(sample_points_xyz, x_reshape,
                                          featmap_strides=featmap_strides,
-                                         n_points=self.in_points,
+                                         n_points=self.points,
                                          )
+        sampled_feature = sampled_feature.view(B, f_group, f_query, f_point, self.points, -1)
+        sampled_feature = sampled_feature.permute(0,2,1,3,4,5).contiguous()
+        sampled_feature = sampled_feature.view(B, f_query*f_group*f_point, self.points,-1)
 
-        if DEBUG:
-            torch.save(
-                sampled_feature, 'demo/sample_feature_{}.pth'.format(AdaptiveSamplingMixing._DEBUG))
-            AdaptiveSamplingMixing._DEBUG += 1
 
-        query_feat = self.adaptive_mixing(sampled_feature, query_feat)
-        query_feat = self.norm(query_feat)
+        sampled_feature = self.static_channel_mixing(sampled_feature)
+        sampled_feature = self.norm(sampled_feature)
+        sampled_feature = self.act(sampled_feature)
 
+        sampled_feature = self.static_spatial_mixing(sampled_feature.permute(0,1,3,2)).view(B, f_query*f_group*f_point, self.content_dim)
+        sampled_feature = self.norm(sampled_feature)
+        sampled_feature = self.act(sampled_feature)
+        query_feat = query_feat + sampled_feature
         return query_feat
 
 class AdaptiveSamplingMixingDualSample(nn.Module):
@@ -211,10 +210,7 @@ class AdaptiveSamplingMixingDualSample(nn.Module):
 
         self.sampling_n_mixing_second = AdaptiveSamplingMixing(
             content_dim=int(self.content_dim/n_groups),  # query dim
-            feat_channels=self.feat_channels,
-            in_points=6,
-            out_points=8,
-            n_groups=4
+            points=32,
         )
 
         self.init_weights()
@@ -270,7 +266,7 @@ class AdaptiveSamplingMixingDualSample(nn.Module):
         sampled_feature = sampled_feature.view(B, N*G*P, C)
         sample_points_xyz = sample_points_xyz.view(B, N*G*P, 3)
         
-        sampled_feature = self.sampling_n_mixing_second(x, sampled_feature, sample_points_xyz, featmap_strides)
+        sampled_feature = self.sampling_n_mixing_second(x, sampled_feature, sample_points_xyz, featmap_strides,f_query=N, f_group=G, f_point=P)
         sampled_feature = sampled_feature.view(B,N,G,P,C)
 
         if DEBUG:
