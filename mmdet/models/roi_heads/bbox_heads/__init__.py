@@ -8,6 +8,7 @@ from .sabl_head import SABLHead
 from .scnet_bbox_head import SCNetBBoxHead
 from .adamixer_decoder_stage import AdaMixerDecoderStage
 from .adamixer_decoder_stage_withpe import AdaMixerDecoderStageWithPe
+from .adamixer_decoder_stage_withpeabsolute import AdaMixerDecoderStageWithPeAbsolute
 from .adamixer_decoder_stage_cat import AdaMixerDecoderStageCat
 from .adamixer_decoder_stage_catpe import AdaMixerDecoderStageCatPe
 from .adamixer_decoder_stage_catpeffn import AdaMixerDecoderStageCatPeFFN
@@ -19,7 +20,7 @@ from .adaptive_mixing_operator import AdaptiveMixing
 __all__ = [
     'BBoxHead', 'ConvFCBBoxHead', 'Shared2FCBBoxHead',
     'Shared4Conv1FCBBoxHead', 'DoubleConvFCBBoxHead', 'SABLHead', 'DIIHead',
-    'SCNetBBoxHead', 'AdaMixerDecoderStage','AdaptiveMixing','AdaMixerDecoderStageWithPe'
+    'SCNetBBoxHead', 'AdaMixerDecoderStage','AdaptiveMixing','AdaMixerDecoderStageWithPe','AdaMixerDecoderStageWithPeAbsolute'
     ,'AlternateMixerDecoderStage','AdaMixerDecoderStageCat', 'AdaMixerDecoderStageCatPe'
     ,'AdaMixerDecoderStageCatPeFFN','AdaMixerDecoderStageCatPeFFNHeadTail','AdaMixerDecoderStageDualSample'
 ]
