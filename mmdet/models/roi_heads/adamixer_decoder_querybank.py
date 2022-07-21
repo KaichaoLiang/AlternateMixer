@@ -64,6 +64,7 @@ class AdaMixerDecoderQueryBank(CascadeRoIHead):
         self.attention_norm = build_norm_layer(dict(type='LN'), self.content_dim)[1]
     
     def _bbox_forward(self, stage, img_feat, query_xyzr, query_content, img_metas):
+        num_imgs = len(img_metas)
         init_content_features = self.init_content_features.weight.clone()
         init_content_features = init_content_features[None].expand(
             num_imgs, *init_content_features.size())
@@ -71,7 +72,7 @@ class AdaMixerDecoderQueryBank(CascadeRoIHead):
         query_content = query_content + query_crossatt
         query_content = self.attention_norm(query_content)
 
-        num_imgs = len(img_metas)
+        
         bbox_head = self.bbox_head[stage]
 
         cls_score, delta_xyzr, query_content = bbox_head(img_feat, query_xyzr,
