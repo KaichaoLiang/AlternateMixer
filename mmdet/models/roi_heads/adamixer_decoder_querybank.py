@@ -58,7 +58,6 @@ class AdaMixerDecoderQueryBank(CascadeRoIHead):
         self._init_layers()
     
     def _init_layers(self):
-        super(AdaMixerDecoderQueryBank, self)._init_layers()
         self.init_content_features = nn.Embedding(
             self.bank_size, self.content_dim)
         self.crossattention = MultiheadAttention(self.content_dim, 8, 0.0, batch_first=True)
