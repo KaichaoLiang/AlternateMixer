@@ -61,7 +61,7 @@ class AdaMixerDecoderQueryBank(CascadeRoIHead):
         self.init_content_features = nn.Embedding(
             self.bank_size, self.content_dim)
         self.crossattention = MultiheadAttention(self.content_dim, 8, 0.0, batch_first=True)
-        self.attention_norm = build_norm_layer(dict(type='LN'), )[1]
+        self.attention_norm = build_norm_layer(dict(type='LN'), self.content_dim)[1]
     
     def _bbox_forward(self, stage, img_feat, query_xyzr, query_content, img_metas):
         init_content_features = self.init_content_features.weight.clone()
