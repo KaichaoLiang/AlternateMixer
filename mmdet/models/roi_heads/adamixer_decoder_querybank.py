@@ -72,7 +72,6 @@ class AdaMixerDecoderQueryBank(CascadeRoIHead):
         query_content = query_content + query_crossatt
         query_content = self.attention_norm(query_content)
 
-        
         bbox_head = self.bbox_head[stage]
 
         cls_score, delta_xyzr, query_content = bbox_head(img_feat, query_xyzr,
