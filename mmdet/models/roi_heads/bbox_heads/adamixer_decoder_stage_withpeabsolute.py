@@ -149,7 +149,7 @@ class AdaptiveSamplingMixingWithPeAbsolute(nn.Module):
         pos_xyz = sample_points_xyz.view(B*N*G, P,3)
         mixpe = position_embedding_3d(pos_xyz, dims)
         mixpe = mixpe.view(sampled_feature.size())
-        query_feat = query_feat+mixpe
+        sampled_feature = sampled_feature+mixpe
 
         if DEBUG:
             torch.save(

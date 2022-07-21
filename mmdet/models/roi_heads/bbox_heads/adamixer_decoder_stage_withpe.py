@@ -149,7 +149,7 @@ class AdaptiveSamplingMixingWithPe(nn.Module):
         offset_xyz = offset.view(B*N*G, P,3)
         mixpe = position_embedding_3d(offset_xyz, dims)
         mixpe = mixpe.view(sampled_feature.size())
-        query_feat = query_feat+mixpe
+        sampled_feature = sampled_feature+mixpe
 
         if DEBUG:
             torch.save(
