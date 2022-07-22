@@ -108,10 +108,7 @@ class AdaptiveSamplingMixing(BaseModule):
         self.static_spatial_mixing = nn.Linear(self.points, self.outpoints)
         self.projector = nn.Linear(content_dim*self.outpoints,content_dim)
         self.act = nn.ReLU(inplace=True)
-        self.norm1 = nn.LayerNorm(content_dim)
-        self.norm2 = nn.LayerNorm(content_dim)
-        self.norm3 = nn.LayerNorm(content_dim)
-
+    
         self.init_weights()
 
     @torch.no_grad()
@@ -172,10 +169,10 @@ class AdaptiveSamplingMixing(BaseModule):
         sampled_feature = sampled_feature.view(B, f_query*f_group*f_point, self.points,-1)
 
         sampled_feature = self.static_channel_mixing(sampled_feature)
-        sampled_feature = self.norm1(sampled_feature)
+        sampled_feature = F.layer_norm(sampled_feature, [sampled_feature.size(-2), sampled_feature.size(-1)])
         sampled_feature = self.act(sampled_feature)
         sampled_feature = self.static_spatial_mixing(sampled_feature.permute(0,1,3,2)).view(B, f_query*f_group*f_point, self.content_dim,self.outpoints)
-        sampled_feature = self.norm2(sampled_feature)
+        sampled_feature = F.layer_norm(sampled_feature, [sampled_feature.size(-2), sampled_feature.size(-1)])
         sampled_feature = self.act(sampled_feature)
 
         sampled_feature = sampled_feature.flatten(2,3)
