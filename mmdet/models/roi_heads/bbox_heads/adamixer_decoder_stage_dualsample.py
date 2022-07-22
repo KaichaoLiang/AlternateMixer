@@ -136,18 +136,13 @@ class AdaptiveSamplingMixing(BaseModule):
 
         # initialize sampling delta z
         nn.init.constant_(bias[:, :, 2:3], -1.0)
-        print('sub sample init weights')
 
     def forward(self, x, query_feat, query_xyz, featmap_strides,f_query=100, f_group=4, f_point=32):
         offset = self.sampling_offset_generator(query_feat)
-        print('==========================================')
-        print('sub sample point offset shape', offset.shape)
-        print('sub sample point base point shape', query_xyz.shape)
         sample_points_xyz = make_sample_points_secondstage(
             offset, self.points,
             query_xyz,
         )
-        print('sub sample point absolute point shape', offset.shape)
         if DEBUG:
             torch.save(
                 sample_points_xyz, 'demo/sample_xy_{}.pth'.format(AdaptiveSamplingMixing._DEBUG))
@@ -155,41 +150,32 @@ class AdaptiveSamplingMixing(BaseModule):
         
         sample_points_xyz=sample_points_xyz.view(B, f_query, f_group, f_point, -1).permute(0,2,1,3,4).contiguous()
         sample_points_xyz=sample_points_xyz.view(B*f_group, f_query*f_point, 1, self.points, 3)
-        print('sub sample point absolute point shape rearrange', sample_points_xyz.shape)
 
         x_reshape = []
         for f in x:
             B, C, H, W = f.size()
             f_reshape = f.view(B*f_group, -1, H, W)
             x_reshape.append(f_reshape)
-            print('**reshape feat map, origin shape',f.shape,' new shape', f_reshape.shape)
 
         sampled_feature, _ = sampling_3d(sample_points_xyz, x_reshape,
                                          featmap_strides=featmap_strides,
                                          n_points=self.points,
-                                         )
-        print('sub sample feature shape', sampled_feature.shape)                             
+                                         )                   
         sampled_feature = sampled_feature.view(B, f_group, f_query, f_point, self.points, -1)
         sampled_feature = sampled_feature.permute(0,2,1,3,4,5).contiguous()
-        print('sub sample feature permute shape', sampled_feature.shape) 
         sampled_feature = sampled_feature.view(B, f_query*f_group*f_point, self.points,-1)
-        print('sub sample feature rearrange shape', sampled_feature.shape) 
-
 
         sampled_feature = self.static_channel_mixing(sampled_feature)
         sampled_feature = self.norm(sampled_feature)
         sampled_feature = self.act(sampled_feature)
-        print('sub sample feature shape after channel mixing', sampled_feature.shape)
         sampled_feature = self.static_spatial_mixing(sampled_feature.permute(0,1,3,2)).view(B, f_query*f_group*f_point, self.content_dim)
         sampled_feature = self.norm(sampled_feature)
         sampled_feature = self.act(sampled_feature)
-        print('sub sample feature shape after spatial mixing', sampled_feature.shape)
 
         query_feat = query_feat + sampled_feature
-        print('==========================================')
         return query_feat
 
-class AdaptiveSamplingMixingDualSampleTest(nn.Module):
+class AdaptiveSamplingMixingDualSample(nn.Module):
     _DEBUG = 0
 
     def __init__(self,
@@ -199,7 +185,7 @@ class AdaptiveSamplingMixingDualSampleTest(nn.Module):
                  content_dim=256,
                  feat_channels=None
                  ):
-        super(AdaptiveSamplingMixingDualSampleTest , self).__init__()
+        super(AdaptiveSamplingMixingDualSample , self).__init__()
         self.in_points = in_points
         self.out_points = out_points
         self.n_groups = n_groups
@@ -256,48 +242,39 @@ class AdaptiveSamplingMixingDualSampleTest(nn.Module):
 
         self.adaptive_mixing.init_weights()
         self.sampling_n_mixing_second.init_weights()
-        print('main sample init weights')
 
     def forward(self, x, query_feat, query_xyzr, featmap_strides):
-        print('*********************************************')
         offset = self.sampling_offset_generator(query_feat)
         
-        print('main sample point offset shape', offset.shape)
-        print('main sample point base point shape', query_xyzr.shape)
         sample_points_xyz = make_sample_points(
             offset, self.n_groups * self.in_points,
             query_xyzr,
         )
-        print('main sample point absolute point shape', offset.shape)
 
         if DEBUG:
             torch.save(
-                sample_points_xyz, 'demo/sample_xy_{}.pth'.format(AdaptiveSamplingMixingDualSampleTest._DEBUG))
+                sample_points_xyz, 'demo/sample_xy_{}.pth'.format(AdaptiveSamplingMixingDualSample._DEBUG))
 
         sampled_feature, _ = sampling_3d(sample_points_xyz, x,
                                          featmap_strides=featmap_strides,
                                          n_points=self.in_points,
                                          )
         #B, n_queries, n_groups, n_points, n_channels
-        print('main sample features shape',sampled_feature.shape)
         B, N, G, P ,C = sampled_feature.size()
 
         sampled_feature = sampled_feature.view(B, N*G*P, C)
         sample_points_xyz = sample_points_xyz.view(B, N*G*P, 3)
-        print('main sample features rearrange shape',sampled_feature.shape)
 
         sampled_feature = self.sampling_n_mixing_second(x, sampled_feature, sample_points_xyz, featmap_strides,f_query=N, f_group=G, f_point=P)
-        print('main sample features after sample_mixing',sampled_feature.shape)
         sampled_feature = sampled_feature.view(B,N,G,P,C)
 
         if DEBUG:
             torch.save(
-                sampled_feature, 'demo/sample_feature_{}.pth'.format(AdaptiveSamplingMixingDualSampleTest._DEBUG))
-            AdaptiveSamplingMixingDualSampleTest._DEBUG += 1
+                sampled_feature, 'demo/sample_feature_{}.pth'.format(AdaptiveSamplingMixingDualSample._DEBUG))
+            AdaptiveSamplingMixingDualSample._DEBUG += 1
 
         query_feat = self.adaptive_mixing(sampled_feature, query_feat)
         query_feat = self.norm(query_feat)
-        print('*********************************************')
         return query_feat
 
 def position_embedding(token_xyzr, num_feats, temperature=10000):
@@ -387,7 +364,7 @@ class AdaMixerDecoderStageDualSampleTest(BBoxHead):
         self.n_groups = n_groups
         self.out_points = out_points
 
-        self.sampling_n_mixing = AdaptiveSamplingMixingDualSampleTest(
+        self.sampling_n_mixing = AdaptiveSamplingMixingDualSample(
             content_dim=content_dim,  # query dim
             feat_channels=feat_channels,
             in_points=self.in_points,
