@@ -162,7 +162,7 @@ class AdaptiveSamplingMixing(BaseModule):
             B, C, H, W = f.size()
             f_reshape = f.view(B*f_group, -1, H, W)
             x_reshape.append(f_reshape)
-            print('reshape feat map, origin shape',f.shape,' new shape', f_reshape)
+            print('**reshape feat map, origin shape',f.shape,' new shape', f_reshape.shape)
 
         sampled_feature, _ = sampling_3d(sample_points_xyz, x_reshape,
                                          featmap_strides=featmap_strides,
