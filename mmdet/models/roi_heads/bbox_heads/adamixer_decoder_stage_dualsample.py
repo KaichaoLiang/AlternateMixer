@@ -94,18 +94,24 @@ class AdaptiveSamplingMixing(BaseModule):
 
     def __init__(self,
                  points=32,
+                 outpoints=16,
                  content_dim=64,
                  ):
         super(AdaptiveSamplingMixing, self).__init__()
         self.points = points
+        self.outpoints = outpoints
         self.content_dim = content_dim
         self.sampling_offset_generator = nn.Sequential(
             nn.Linear(content_dim, points * 3)
         )
         self.static_channel_mixing = nn.Linear(content_dim, content_dim)
-        self.static_spatial_mixing = nn.Linear(self.points, 1)
+        self.static_spatial_mixing = nn.Linear(self.points, self.outpoints)
+        self.projector = nn.Linear(content_dim*self.outpoints,content_dim)
         self.act = nn.ReLU(inplace=True)
-        self.norm = nn.LayerNorm(content_dim)
+        self.norm1 = nn.LayerNorm(content_dim)
+        self.norm2 = nn.LayerNorm(content_dim)
+        self.norm3 = nn.LayerNorm(content_dim)
+
         self.init_weights()
 
     @torch.no_grad()
@@ -166,11 +172,14 @@ class AdaptiveSamplingMixing(BaseModule):
         sampled_feature = sampled_feature.view(B, f_query*f_group*f_point, self.points,-1)
 
         sampled_feature = self.static_channel_mixing(sampled_feature)
-        sampled_feature = self.norm(sampled_feature)
+        sampled_feature = self.norm1(sampled_feature)
         sampled_feature = self.act(sampled_feature)
-        sampled_feature = self.static_spatial_mixing(sampled_feature.permute(0,1,3,2)).view(B, f_query*f_group*f_point, self.content_dim)
-        sampled_feature = self.norm(sampled_feature)
+        sampled_feature = self.static_spatial_mixing(sampled_feature.permute(0,1,3,2)).view(B, f_query*f_group*f_point, self.content_dim,self.outpoints)
+        sampled_feature = self.norm2(sampled_feature)
         sampled_feature = self.act(sampled_feature)
+
+        sampled_feature = sampled_feature.flatten(2,3)
+        sampled_feature = self.projector(sampled_feature)
 
         query_feat = query_feat + sampled_feature
         return query_feat
@@ -292,7 +301,7 @@ def position_embedding(token_xyzr, num_feats, temperature=10000):
 
 
 @HEADS.register_module()
-class AdaMixerDecoderStageDualSampleTest(BBoxHead):
+class AdaMixerDecoderStageDualSample(BBoxHead):
     _DEBUG = -1
 
     def __init__(self,
@@ -314,7 +323,7 @@ class AdaMixerDecoderStageDualSampleTest(BBoxHead):
                  **kwargs):
         assert init_cfg is None, 'To prevent abnormal initialization ' \
                                  'behavior, init_cfg is not allowed to be set'
-        super(AdaMixerDecoderStageDualSampleTest, self).__init__(
+        super(AdaMixerDecoderStageDualSample, self).__init__(
             num_classes=num_classes,
             reg_decoded_bbox=True,
             reg_class_agnostic=True,
@@ -376,7 +385,7 @@ class AdaMixerDecoderStageDualSampleTest(BBoxHead):
 
     @torch.no_grad()
     def init_weights(self):
-        super(AdaMixerDecoderStageDualSampleTest, self).init_weights()
+        super(AdaMixerDecoderStageDualSample, self).init_weights()
         for n, m in self.named_modules():
             if isinstance(m, nn.Linear):
                 m.reset_parameters()
@@ -401,7 +410,7 @@ class AdaMixerDecoderStageDualSampleTest(BBoxHead):
                 featmap_strides):
         N, n_query = query_content.shape[:2]
 
-        AdaMixerDecoderStageDualSampleTest._DEBUG += 1
+        AdaMixerDecoderStageDualSample._DEBUG += 1
 
         with torch.no_grad():
             rois = decode_box(query_xyzr)
