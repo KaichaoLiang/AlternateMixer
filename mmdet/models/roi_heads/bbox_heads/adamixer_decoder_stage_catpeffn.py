@@ -174,7 +174,8 @@ class AdaptiveSamplingMixingCatPeFFN(BaseModule):
         cat_feats_out = cat_feats_out + cat_feats
         cat_feats_out = self.attention_norm(cat_feats_out)
         
-        cat_feats_out = self.ffn(cat_feats_out)
+        cat_feats_ffn = self.ffn(cat_feats_out)
+        cat_feats_out = cat_feats_out+cat_feats_ffn
         cat_feats_out = self.ffn_norm(cat_feats_out)
 
         sampled_feature = cat_feats_out[:,-P:,:]
