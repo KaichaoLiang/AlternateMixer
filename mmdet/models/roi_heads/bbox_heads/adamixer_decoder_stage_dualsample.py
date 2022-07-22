@@ -214,7 +214,7 @@ class AdaptiveSamplingMixingDualSample(nn.Module):
 
         self.sampling_n_mixing_second = AdaptiveSamplingMixing(
             content_dim=int(self.content_dim/n_groups),  # query dim
-            points=32,
+            points=16,
         )
 
         self.init_weights()
