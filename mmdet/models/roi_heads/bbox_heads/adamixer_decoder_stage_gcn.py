@@ -104,6 +104,7 @@ class CrossGCN(nn.Module):
         B, N, G, P, f = sample_points.size()
         assert f==self.feat_dim
         print('test shape:\n query_feat shape:',query.shape,B,N,G,self.feat_dim)
+        query = query.view(B,N,G,self.feat_dim)
         query = query.view(B,N*G,1,self.feat_dim)
         query_aug = query.repeat(1,1,P,1)
         sample_points = sample_points.view(query_aug.size())
