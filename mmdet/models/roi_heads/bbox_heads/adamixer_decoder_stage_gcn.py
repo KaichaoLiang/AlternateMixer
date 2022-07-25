@@ -136,7 +136,7 @@ class CrossGCN(nn.Module):
             InvD_sqrt_trans = torch.sqrt(1/(1+torch.sum(adjacant_weight,-2).view(B,N*G,1)))#D_hat^-1/2^T
             query_layer = query_layer*InvD_sqrt_trans
             
-            query_layer = torch.layernorm(query_layer, [self.feat_dim])
+            query_layer = torch.layer_norm(query_layer, [self.feat_dim])
             query_layer = self.act(query_layer)
             query = query+query_layer
         
