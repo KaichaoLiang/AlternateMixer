@@ -115,6 +115,7 @@ class CrossGCN(nn.Module):
         adjacant_weight = torch.layer_norm(adjacant_weight,[adjacant_weight.size(-1)])
         adjacant_weight = self.act(adjacant_weight)
         adjacant_weight = self.connect_projector_l2(adjacant_weight)
+        adjacant_weight = torch.sigmoid(adjacant_weight)
         adjacant_weight = adjacant_weight.view(B, N*G, P, 1) #[batchsize, num_query*n_groups, n_points, 1]
 
         #GCN layer
