@@ -103,7 +103,6 @@ class CrossGCN(nn.Module):
         #concat feat
         B, N, G, P, f = sample_points.size()
         assert f==self.feat_dim
-        print('test shape:\n query_feat shape:',query.shape,B,N,G,self.feat_dim)
         query = query.view(B,N,G,self.feat_dim).contiguous()
         query = query.view(B,N*G,1,self.feat_dim)
         query_aug = query.repeat(1,1,P,1)
@@ -124,8 +123,6 @@ class CrossGCN(nn.Module):
             query_layer = query
             layer_weight = self.gcn_kernels[l](query_layer).view(B, N*G, self.feat_dim, self.feat_dim)
             
-            print('layer weight shape', layer_weight.shape)
-            print('sample point shape', sample_points.shape)
             #X*W
             out = torch.matmul(sample_points,layer_weight)
             query_layer = torch.matmul(query_layer.view(B, N*G, 1, -1),layer_weight).flatten(2,3)
@@ -142,7 +139,6 @@ class CrossGCN(nn.Module):
             query = query+query_layer
         
         query = query.view(B, N, G*self.feat_dim)
-        print(query)
         return query
 
 class AdaptiveSamplingGCN(nn.Module):
