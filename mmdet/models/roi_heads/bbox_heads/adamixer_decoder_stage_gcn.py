@@ -127,7 +127,7 @@ class CrossGCN(nn.Module):
             print('sample point shape', sample_points.shape)
             #X*W
             out = torch.matmul(sample_points,layer_weight)
-            query_layer = torch.matmul(query_layer,layer_weight)
+            query_layer = torch.matmul(query_layer.view(B, N*G, 1, -1),layer_weight).flatten(2,3)
             
             #A_hatX*W
             InvD_sqrt_side = torch.sqrt(1/(1+adjacant_weight)) #D_hat^-1/2
