@@ -335,7 +335,7 @@ class AdaMixerDecoderGCNStage(BBoxHead):
 
         nn.init.uniform_(self.iof_tau, 0.0, 4.0)
 
-        self.sampling_n_mixing.init_weights()
+        self.sampling_n_gcn.init_weights()
 
     @auto_fp16()
     def forward(self,
