@@ -141,6 +141,7 @@ class CrossGCN(nn.Module):
             query = query+query_layer
         
         query = query.view(B, N, G*self.feat_dim)
+        print(query)
         return query
 
 class AdaptiveSamplingGCN(nn.Module):
