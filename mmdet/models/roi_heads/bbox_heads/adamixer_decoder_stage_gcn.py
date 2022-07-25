@@ -123,6 +123,8 @@ class CrossGCN(nn.Module):
             query_layer = query
             layer_weight = self.gcn_kernels[l](query_layer).view(B, N*G, self.feat_dim, self.feat_dim)
             
+            print('layer weight shape', layer_weight.shape)
+            print('sample point shape', sample_points.shape)
             #X*W
             out = torch.matmul(sample_points,layer_weight)
             query_layer = torch.matmul(query_layer,layer_weight)
