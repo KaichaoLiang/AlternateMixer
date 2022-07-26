@@ -8,7 +8,7 @@ from .sabl_head import SABLHead
 from .scnet_bbox_head import SCNetBBoxHead
 from .adamixer_decoder_stage import AdaMixerDecoderStage
 from .adamixer_decoder_stage_gcn import AdaMixerDecoderGCNStage
-
+from .adamixer_decoder_stage_gcndense import AdaMixerDecoderGCNDenseStage
 from .adamixer_decoder_stage_withpe import AdaMixerDecoderStageWithPe
 from .adamixer_decoder_stage_withpeabsolute import AdaMixerDecoderStageWithPeAbsolute
 from .adamixer_decoder_stage_cat import AdaMixerDecoderStageCat
@@ -26,5 +26,5 @@ __all__ = [
     'SCNetBBoxHead', 'AdaMixerDecoderStage','AdaptiveMixing','AdaMixerDecoderStageWithPe','AdaMixerDecoderStageWithPeAbsolute'
     ,'AlternateMixerDecoderStage','AdaMixerDecoderStageCat', 'AdaMixerDecoderStageCatPe'
     ,'AdaMixerDecoderStageCatPeFFN','AdaMixerDecoderStageCatPeFFNHeadTail','AdaMixerDecoderStageDualSample','AdaMixerDecoderStageDualSampleTest'
-    ,'AdaMixerDecoderGCNStage'
+    ,'AdaMixerDecoderGCNStage','AdaMixerDecoderGCNDenseStage'
 ]
