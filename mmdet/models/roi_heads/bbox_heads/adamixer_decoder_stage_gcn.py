@@ -71,7 +71,7 @@ class CrossGCN(nn.Module):
                  feat_dim=64,
                  connect_latent_dim=256,
                  n_groups=4,
-                 n_gcns=1,
+                 n_gcns=2,
                  sampled_points=32):
         super(CrossGCN, self).__init__()
         self.feat_dim = feat_dim
@@ -117,10 +117,13 @@ class CrossGCN(nn.Module):
         adjacant_weight = torch.sigmoid(adjacant_weight)
         adjacant_weight = adjacant_weight.view(B, N*G, P, 1) #[batchsize, num_query*n_groups, n_points, 1]
 
+        #===================================
+        #GCN matrix calculation
+        #===================================
         #GCN layer
         query = query.view(B,N*G,self.feat_dim)
+        query_layer = query
         for l in range(self.n_gcns):
-            query_layer = query
             layer_weight = self.gcn_kernels[l](query_layer).view(B, N*G, self.feat_dim, self.feat_dim)
             
             #X*W
@@ -128,16 +131,23 @@ class CrossGCN(nn.Module):
             query_layer = torch.matmul(query_layer.view(B, N*G, 1, -1),layer_weight).flatten(2,3)
             
             #A_hatX*W
+            InvD_sqrt_trans = torch.sqrt(1/(1+torch.sum(adjacant_weight,-2).view(B,N*G,1)))#D_hat^-1/2^T
             InvD_sqrt_side = torch.sqrt(1/(1+adjacant_weight)) #D_hat^-1/2
+            
+            sample_points_update = InvD_sqrt_trans*query_layer
+            sample_points_update = sample_points_update.view(B,N*G,1,self.feat_dim).repeat(1,1,P,1)
+            sample_points = InvD_sqrt_side*(out+sample_points_update)
+            
             out = out*InvD_sqrt_side
             query_layer = query_layer + torch.sum(out, dim=-2).view(B, N*G, self.feat_dim)
-            InvD_sqrt_trans = torch.sqrt(1/(1+torch.sum(adjacant_weight,-2).view(B,N*G,1)))#D_hat^-1/2^T
             query_layer = query_layer*InvD_sqrt_trans
-            
-            query_layer = torch.layer_norm(query_layer, [self.feat_dim])
+
+            #normalization and activation
+            query_layer = torch.layer_norm(query_layer, [query_layer.size(-1)])
             query_layer = self.act(query_layer)
-            query = query+query_layer
-        
+            sample_points = torch.layer_norm(sample_points, [query_layer.size(-1)])
+            sample_points= self.act(sample_points)
+        query = query+query_layer
         query = query.view(B, N, G*self.feat_dim)
         return query
 
@@ -163,7 +173,7 @@ class AdaptiveSamplingGCN(nn.Module):
         )
 
         self.norm = nn.LayerNorm(content_dim)
-        self.crossgcn = CrossGCN(feat_dim=int(self.content_dim//self.n_groups),n_groups=self.n_groups,n_gcns=1)
+        self.crossgcn = CrossGCN(feat_dim=int(self.content_dim//self.n_groups),n_groups=self.n_groups,n_gcns=2)
         self.init_weights()
 
     @torch.no_grad()
