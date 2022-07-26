@@ -105,7 +105,7 @@ class CrossGCNDense(nn.Module):
         assert f==self.feat_dim
         query = query.view(B,N,G,self.feat_dim).contiguous()
         query = query.view(B,N*G,1,self.feat_dim)
-        query_aug = query.repeat(1,1,N*G*P,-1)
+        query_aug = query.repeat(1,1,N*G*P,1)
         sample_points_aug = sample_points.view(B,1,N*G*P,-1)
         sample_points_aug = sample_points_aug.repeat(1,N*G,1,1)
         cat_points = torch.cat([query_aug, sample_points_aug],dim=-1) #shape [B, N*G, N*G*P,f]
