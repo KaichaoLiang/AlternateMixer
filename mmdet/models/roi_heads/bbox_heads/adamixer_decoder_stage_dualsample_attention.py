@@ -89,7 +89,7 @@ def make_sample_points_secondstage(offset, num_group, xyz):
     return torch.cat([sample_yx, sample_lvl], dim=-1)
 
 
-class AdaptiveSamplingMixing(BaseModule):
+class AdaptiveSamplingAttention(BaseModule):
     _DEBUG = 0
 
     def __init__(self,
@@ -97,7 +97,7 @@ class AdaptiveSamplingMixing(BaseModule):
                  outpoints=16,
                  content_dim=64,
                  ):
-        super(AdaptiveSamplingMixing, self).__init__()
+        super(AdaptiveSamplingAttention, self).__init__()
         self.points = points
         self.outpoints = outpoints
         self.content_dim = content_dim

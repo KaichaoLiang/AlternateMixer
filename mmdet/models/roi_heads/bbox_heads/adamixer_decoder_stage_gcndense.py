@@ -88,7 +88,6 @@ class CrossGCNDense(nn.Module):
     @torch.no_grad()
     def init_weights(self):
         nn.init.kaiming_uniform_(self.connect_projector_l1.weight)
-        nn.init.kaiming_uniform_(self.connect_projector_l2.weight)
         for l in range(self.n_gcns):
             nn.init.kaiming_uniform_(self.gcn_kernels[l].weight)
     
