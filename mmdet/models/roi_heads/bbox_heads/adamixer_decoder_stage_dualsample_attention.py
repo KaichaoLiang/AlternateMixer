@@ -188,7 +188,7 @@ class AdaptiveSamplingAttention(BaseModule):
         sampled_feature = sampled_feature.view(B*f_query*f_group*f_point,-1,self.content_dim)
 
 
-        query_feat_pe = position_embedding_3d(query_feat,self.content_dim)
+        query_feat_pe = position_embedding_3d(query_xyz,self.content_dim)
         query_feat_att = query_feat + query_feat_pe
         query_feat_att = query_feat_att.view(B*f_query*f_group*f_point,1,self.content_dim)
 
