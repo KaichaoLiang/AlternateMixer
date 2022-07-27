@@ -182,15 +182,15 @@ class AdaptiveSamplingAttention(BaseModule):
         sample_points_xyz = sample_points_xyz.view(B, f_group, f_query, f_point, self.points, -1)
         sample_points_xyz = sample_points_xyz.permute(0,2,1,3,4,5).contiguous()
         sample_points_xyz = sample_points_xyz.view(B, f_query*f_group*f_point, self.points,-1)
-        sampled_pe = position_embedding_3d(sample_points_xyz.flatten(1,2), f)
+        sampled_pe = position_embedding_3d(sample_points_xyz.flatten(1,2), self.content_dim)
         sampled_pe = sampled_pe.view(B, f_query*f_group*f_point, self.points,-1)
         sampled_feature = sampled_feature + sampled_pe
-        sampled_feature = sampled_feature.view(B*f_query*f_group*f_point,-1,f)
+        sampled_feature = sampled_feature.view(B*f_query*f_group*f_point,-1,self.content_dim)
 
 
-        query_feat_pe = position_embedding_3d(query_feat,f)
+        query_feat_pe = position_embedding_3d(query_feat,self.content_dim)
         query_feat_att = query_feat + query_feat_pe
-        query_feat_att = query_feat_att.view(B*f_query*f_group*f_point,1,f)
+        query_feat_att = query_feat_att.view(B*f_query*f_group*f_point,1,self.content_dim)
 
         query_feat_att = self.cross_attention(query=query_feat_att, key=sampled_feature, value=sampled_feature)
 
