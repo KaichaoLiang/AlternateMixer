@@ -115,7 +115,6 @@ class AdaptiveSamplingAttention(BaseModule):
         )
 
         self.cross_attention = MultiheadAttention(content_dim, 2, 0.0, batch_first=True)
-        self.projector = nn.Linear(content_dim*self.outpoints,content_dim)
         self.act = nn.ReLU(inplace=True)
     
         self.init_weights()
