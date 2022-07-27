@@ -114,7 +114,7 @@ model = dict(
         content_dim=QUERY_DIM,
         bbox_head=[
             dict(
-                type='AdaMixerDecoderStageDualSampleTest',
+                type='AdaMixerDecoderStageDualSampleAttention',
                 num_classes=80,
                 num_ffn_fcs=2,
                 num_heads=8,

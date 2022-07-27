@@ -16,6 +16,7 @@ from .adamixer_decoder_stage_catpe import AdaMixerDecoderStageCatPe
 from .adamixer_decoder_stage_catpeffn import AdaMixerDecoderStageCatPeFFN
 from .adamixer_decoder_stage_catpeffn_headtail import AdaMixerDecoderStageCatPeFFNHeadTail
 from .adamixer_decoder_stage_dualsample import AdaMixerDecoderStageDualSample
+from .adamixer_decoder_stage_dualsample_attention import AdaMixerDecoderStageDualSampleAttention
 from .alternatemixer_decoder_stage import AlternateMixerDecoderStage
 from .adaptive_mixing_operator import AdaptiveMixing
 
@@ -25,5 +26,5 @@ __all__ = [
     'SCNetBBoxHead', 'AdaMixerDecoderStage','AdaptiveMixing','AdaMixerDecoderStageWithPe','AdaMixerDecoderStageWithPeAbsolute'
     ,'AlternateMixerDecoderStage','AdaMixerDecoderStageCat', 'AdaMixerDecoderStageCatPe'
     ,'AdaMixerDecoderStageCatPeFFN','AdaMixerDecoderStageCatPeFFNHeadTail','AdaMixerDecoderStageDualSample'
-    ,'AdaMixerDecoderGCNStage','AdaMixerDecoderGCNDenseStage'
+    ,'AdaMixerDecoderGCNStage','AdaMixerDecoderGCNDenseStage','AdaMixerDecoderStageDualSampleAttention'
 ]
