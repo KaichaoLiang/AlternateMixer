@@ -4,7 +4,7 @@ import torch.nn.functional as F
 from mmcv.cnn import (bias_init_with_prob, build_activation_layer,
                       build_norm_layer)
 from mmcv.cnn.bricks.transformer import FFN, MultiheadAttention
-from mmcv.runner import auto_fp16, force_fp32
+from mmcv.runner import auto_fp16, force_fp32, BaseModule
 
 from mmdet.core import multi_apply
 from mmdet.models.builder import HEADS, build_loss
@@ -66,89 +66,122 @@ def make_sample_points(offset, num_group, xyzr):
     return torch.cat([sample_yx, sample_lvl], dim=-1)
 
 
-class CrossGCNDense(nn.Module):
-    def __init__(self,
-                 feat_dim=64,
-                 connect_latent_dim=256,
-                 n_groups=4,
-                 n_gcns=2,
-                 sampled_points=32):
-        super(CrossGCNDense, self).__init__()
-        self.feat_dim = feat_dim
-        self.connect_latent_dim = connect_latent_dim
-        self.n_groups = n_groups
-        self.n_gcns = n_gcns
-        self.sampled_points = sampled_points
-        self.connect_projector_l1 = nn.Linear(self.feat_dim*2,1)
-        self.act = nn.LeakyReLU(inplace=True)
-        self.gcn_kernels = nn.ModuleList()
-        for l in range(self.n_gcns):
-            self.gcn_kernels.append(nn.Linear(self.feat_dim, self.feat_dim**2))
+def make_sample_points_secondstage(offset, num_group, xyz):
+    '''
+        offset_yx: [B, L, num_group*3], normalized by stride
+
+        return: [B, H, W, num_group, 3]
+        '''
+    B, L, _ = offset.shape
+
+    offset = offset.view(B, L, 1, num_group, 3)
+
+    roi_cc = xyz[..., :2]
     
+    roi_lvl = xyz[..., 2:3].view(B, L, 1, 1, 1)
+
+    offset_yx = offset[..., :2]
+    sample_yx = roi_cc.contiguous().view(B, L, 1, 1, 2) \
+        + offset_yx
+
+    sample_lvl = roi_lvl + offset[..., 2:3]
+
+    return torch.cat([sample_yx, sample_lvl], dim=-1)
+
+
+class AdaptiveSamplingMixing(BaseModule):
+    _DEBUG = 0
+
+    def __init__(self,
+                 points=32,
+                 outpoints=16,
+                 content_dim=64,
+                 ):
+        super(AdaptiveSamplingMixing, self).__init__()
+        self.points = points
+        self.outpoints = outpoints
+        self.content_dim = content_dim
+        self.sampling_offset_generator = nn.Sequential(
+            nn.Linear(content_dim, points * 3)
+        )
+        self.static_channel_mixing = nn.Linear(content_dim, content_dim)
+        self.static_spatial_mixing = nn.Linear(self.points, self.outpoints)
+        self.projector = nn.Linear(content_dim*self.outpoints,content_dim)
+        self.act = nn.ReLU(inplace=True)
+    
+        self.init_weights()
+
     @torch.no_grad()
     def init_weights(self):
-        nn.init.kaiming_uniform_(self.connect_projector_l1.weight)
-        nn.init.kaiming_uniform_(self.connect_projector_l2.weight)
-        for l in range(self.n_gcns):
-            nn.init.kaiming_uniform_(self.gcn_kernels[l].weight)
-    
-    def forward(self, sample_points, query):
-        #query shape [batchsize, num_query, n_groups*feats]
-        #sample_points shape [batchsize, num_query, n_groups, n_points, feats]
 
-        #===================================
-        #calculate adjacent matrix
-        #===================================
-        #concat feat
-        B, N, G, P, f = sample_points.size()
-        assert f==self.feat_dim
-        query = query.view(B,N,G,self.feat_dim).contiguous()
-        query = query.view(B,N*G,1,self.feat_dim)
-        query_aug = query.repeat(1,1,N*G*P,1)
-        sample_points_aug = sample_points.view(B,1,N*G*P,-1)
-        sample_points_aug = sample_points_aug.repeat(1,N*G,1,1)
-        cat_points = torch.cat([query_aug, sample_points_aug],dim=-1) #shape [B, N*G, N*G*P,f]
+        super(AdaptiveSamplingMixing,self).init_weights()
+        nn.init.zeros_(self.sampling_offset_generator[-1].weight)
+        nn.init.zeros_(self.sampling_offset_generator[-1].bias)
 
-        #weight generation
-        adjacant_weight = self.connect_projector_l1(cat_points)
-        adjacant_weight = torch.sigmoid(adjacant_weight)
-        adjacant_weight = adjacant_weight.view(B, N*G, N*G*P, 1) #[batchsize, num_query*n_groups, n_points, 1]
+        bias = self.sampling_offset_generator[-1].bias.data.view(
+            1, self.points, 3)
 
-        #===================================
-        #GCN matrix calculation
-        #===================================
-        #GCN layer
-        query = query.view(B,N*G,self.feat_dim)
-        query_layer = query
-        for l in range(self.n_gcns):
-            layer_weight = self.gcn_kernels[l](query_layer).view(B, N*G, self.feat_dim, self.feat_dim)
-            
-            #X*W
-            out = torch.matmul(sample_points,layer_weight)
-            query_layer = torch.matmul(query_layer.view(B, N*G, 1, -1),layer_weight).flatten(2,3)
-            
-            #A_hatX*W
-            InvD_sqrt_trans = torch.sqrt(1/(1+torch.sum(adjacant_weight,-2).view(B,N*G,1)))#D_hat^-1/2^T
-            InvD_sqrt_side = torch.sqrt(1/(1+torch.sum(adjacant_weight,1).contiguous().view(B, N*G, P, -1))) #D_hat^-1/2
-            
-            sample_points_update = InvD_sqrt_trans*query_layer
-            sample_points_update = sample_points_update.view(B,N*G,1,self.feat_dim).repeat(1,1,N*G*P,1)*adjacant_weight
-            sample_points = InvD_sqrt_side*(out+sample_points_update)
-            
-            out = out*InvD_sqrt_side
-            query_layer = query_layer + torch.sum(out, dim=-2).view(B, N*G, self.feat_dim)
-            query_layer = query_layer*InvD_sqrt_trans
+        # if in_points are squared number, then initialize
+        # to sampling on grids regularly, not used in most
+        # of our experiments.
+        if int(self.points ** 0.5) ** 2 == self.points:
+            h = int(self.points ** 0.5)
+            y = torch.linspace(-0.5, 0.5, h + 1) + 0.5 / h
+            yp = y[:-1]
+            y = yp.view(-1, 1).repeat(1, h)
+            x = yp.view(1, -1).repeat(h, 1)
+            y = y.flatten(0, 1)[None, :, None]
+            x = x.flatten(0, 1)[None, :, None]
+            bias[:, :, 0:2] = torch.cat([y, x], dim=-1)
+        else:
+            bandwidth = 0.5 * 1.0
+            nn.init.uniform_(bias, -bandwidth, bandwidth)
 
-            #normalization and activation
-            query_layer = torch.layer_norm(query_layer, [query_layer.size(-1)])
-            query_layer = self.act(query_layer)
-            sample_points = torch.layer_norm(sample_points, [query_layer.size(-1)])
-            sample_points= self.act(sample_points)
-        query = query+query_layer
-        query = query.view(B, N, G*self.feat_dim)
-        return query
+        # initialize sampling delta z
+        nn.init.constant_(bias[:, :, 2:3], -1.0)
 
-class AdaptiveSamplingGCNDense(nn.Module):
+    def forward(self, x, query_feat, query_xyz, featmap_strides,f_query=100, f_group=4, f_point=32):
+        offset = self.sampling_offset_generator(query_feat)
+        sample_points_xyz = make_sample_points_secondstage(
+            offset, self.points,
+            query_xyz,
+        )
+        if DEBUG:
+            torch.save(
+                sample_points_xyz, 'demo/sample_xy_{}.pth'.format(AdaptiveSamplingMixing._DEBUG))
+        B = sample_points_xyz.size(0)
+        
+        sample_points_xyz=sample_points_xyz.view(B, f_query, f_group, f_point, -1).permute(0,2,1,3,4).contiguous()
+        sample_points_xyz=sample_points_xyz.view(B*f_group, f_query*f_point, 1, self.points, 3)
+
+        x_reshape = []
+        for f in x:
+            B, C, H, W = f.size()
+            f_reshape = f.view(B*f_group, -1, H, W)
+            x_reshape.append(f_reshape)
+
+        sampled_feature, _ = sampling_3d(sample_points_xyz, x_reshape,
+                                         featmap_strides=featmap_strides,
+                                         n_points=self.points,
+                                         )                   
+        sampled_feature = sampled_feature.view(B, f_group, f_query, f_point, self.points, -1)
+        sampled_feature = sampled_feature.permute(0,2,1,3,4,5).contiguous()
+        sampled_feature = sampled_feature.view(B, f_query*f_group*f_point, self.points,-1)
+
+        sampled_feature = self.static_channel_mixing(sampled_feature)
+        sampled_feature = F.layer_norm(sampled_feature, [sampled_feature.size(-2), sampled_feature.size(-1)])
+        sampled_feature = self.act(sampled_feature)
+        sampled_feature = self.static_spatial_mixing(sampled_feature.permute(0,1,3,2)).view(B, f_query*f_group*f_point, self.content_dim,self.outpoints)
+        sampled_feature = F.layer_norm(sampled_feature, [sampled_feature.size(-2), sampled_feature.size(-1)])
+        sampled_feature = self.act(sampled_feature)
+
+        sampled_feature = sampled_feature.flatten(2,3)
+        sampled_feature = self.projector(sampled_feature)
+
+        query_feat = query_feat + sampled_feature
+        return query_feat
+
+class AdaptiveSamplingMixingDualSample(nn.Module):
     _DEBUG = 0
 
     def __init__(self,
@@ -158,7 +191,7 @@ class AdaptiveSamplingGCNDense(nn.Module):
                  content_dim=256,
                  feat_channels=None
                  ):
-        super(AdaptiveSamplingGCNDense, self).__init__()
+        super(AdaptiveSamplingMixingDualSample , self).__init__()
         self.in_points = in_points
         self.out_points = out_points
         self.n_groups = n_groups
@@ -170,7 +203,20 @@ class AdaptiveSamplingGCNDense(nn.Module):
         )
 
         self.norm = nn.LayerNorm(content_dim)
-        self.crossgcn = CrossGCNDense(feat_dim=int(self.content_dim//self.n_groups),n_groups=self.n_groups,n_gcns=2)
+
+        self.adaptive_mixing = AdaptiveMixing(
+            self.feat_channels,
+            query_dim=self.content_dim,
+            in_points=self.in_points,
+            out_points=self.out_points,
+            n_groups=self.n_groups,
+        )
+
+        self.sampling_n_mixing_second = AdaptiveSamplingMixing(
+            content_dim=int(self.content_dim/n_groups),  # query dim
+            points=16,
+        )
+
         self.init_weights()
 
     @torch.no_grad()
@@ -200,11 +246,12 @@ class AdaptiveSamplingGCNDense(nn.Module):
         # initialize sampling delta z
         nn.init.constant_(bias[:, :, 2:3], -1.0)
 
-        self.crossgcn.init_weights()
+        self.adaptive_mixing.init_weights()
+        self.sampling_n_mixing_second.init_weights()
 
     def forward(self, x, query_feat, query_xyzr, featmap_strides):
         offset = self.sampling_offset_generator(query_feat)
-
+        
         sample_points_xyz = make_sample_points(
             offset, self.n_groups * self.in_points,
             query_xyzr,
@@ -212,23 +259,29 @@ class AdaptiveSamplingGCNDense(nn.Module):
 
         if DEBUG:
             torch.save(
-                sample_points_xyz, 'demo/sample_xy_{}.pth'.format(AdaptiveSamplingGCNDense._DEBUG))
+                sample_points_xyz, 'demo/sample_xy_{}.pth'.format(AdaptiveSamplingMixingDualSample._DEBUG))
 
         sampled_feature, _ = sampling_3d(sample_points_xyz, x,
                                          featmap_strides=featmap_strides,
                                          n_points=self.in_points,
                                          )
+        #B, n_queries, n_groups, n_points, n_channels
+        B, N, G, P ,C = sampled_feature.size()
+
+        sampled_feature = sampled_feature.view(B, N*G*P, C)
+        sample_points_xyz = sample_points_xyz.view(B, N*G*P, 3)
+
+        sampled_feature = self.sampling_n_mixing_second(x, sampled_feature, sample_points_xyz, featmap_strides,f_query=N, f_group=G, f_point=P)
+        sampled_feature = sampled_feature.view(B,N,G,P,C)
 
         if DEBUG:
             torch.save(
-                sampled_feature, 'demo/sample_feature_{}.pth'.format(AdaptiveSamplingGCNDense._DEBUG))
-            AdaptiveSamplingGCNDense._DEBUG += 1
+                sampled_feature, 'demo/sample_feature_{}.pth'.format(AdaptiveSamplingMixingDualSample._DEBUG))
+            AdaptiveSamplingMixingDualSample._DEBUG += 1
 
-        query_feat = self.crossgcn(sampled_feature, query_feat)
+        query_feat = self.adaptive_mixing(sampled_feature, query_feat)
         query_feat = self.norm(query_feat)
-
         return query_feat
-
 
 def position_embedding(token_xyzr, num_feats, temperature=10000):
     assert token_xyzr.size(-1) == 4
@@ -245,7 +298,7 @@ def position_embedding(token_xyzr, num_feats, temperature=10000):
 
 
 @HEADS.register_module()
-class AdaMixerDecoderGCNDenseStage(BBoxHead):
+class AdaMixerDecoderStageDualSample(BBoxHead):
     _DEBUG = -1
 
     def __init__(self,
@@ -267,7 +320,7 @@ class AdaMixerDecoderGCNDenseStage(BBoxHead):
                  **kwargs):
         assert init_cfg is None, 'To prevent abnormal initialization ' \
                                  'behavior, init_cfg is not allowed to be set'
-        super(AdaMixerDecoderGCNDenseStage, self).__init__(
+        super(AdaMixerDecoderStageDualSample, self).__init__(
             num_classes=num_classes,
             reg_decoded_bbox=True,
             reg_class_agnostic=True,
@@ -317,7 +370,7 @@ class AdaMixerDecoderGCNDenseStage(BBoxHead):
         self.n_groups = n_groups
         self.out_points = out_points
 
-        self.sampling_n_gcn = AdaptiveSamplingGCNDense(
+        self.sampling_n_mixing = AdaptiveSamplingMixingDualSample(
             content_dim=content_dim,  # query dim
             feat_channels=feat_channels,
             in_points=self.in_points,
@@ -329,7 +382,7 @@ class AdaMixerDecoderGCNDenseStage(BBoxHead):
 
     @torch.no_grad()
     def init_weights(self):
-        super(AdaMixerDecoderGCNDenseStage, self).init_weights()
+        super(AdaMixerDecoderStageDualSample, self).init_weights()
         for n, m in self.named_modules():
             if isinstance(m, nn.Linear):
                 m.reset_parameters()
@@ -344,7 +397,7 @@ class AdaMixerDecoderGCNDenseStage(BBoxHead):
 
         nn.init.uniform_(self.iof_tau, 0.0, 4.0)
 
-        self.sampling_n_gcn.init_weights()
+        self.sampling_n_mixing.init_weights()
 
     @auto_fp16()
     def forward(self,
@@ -354,7 +407,7 @@ class AdaMixerDecoderGCNDenseStage(BBoxHead):
                 featmap_strides):
         N, n_query = query_content.shape[:2]
 
-        AdaMixerDecoderGCNDenseStage._DEBUG += 1
+        AdaMixerDecoderStageDualSample._DEBUG += 1
 
         with torch.no_grad():
             rois = decode_box(query_xyzr)
@@ -379,7 +432,7 @@ class AdaMixerDecoderGCNDenseStage(BBoxHead):
         query_content = query_content.permute(1, 0, 2)
 
         ''' adaptive 3D sampling and mixing '''
-        query_content = self.sampling_n_gcn(
+        query_content = self.sampling_n_mixing(
             x, query_content, query_xyzr, featmap_strides)
 
         # FFN
