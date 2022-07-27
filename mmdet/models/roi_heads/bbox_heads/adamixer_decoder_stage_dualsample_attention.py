@@ -105,12 +105,10 @@ class AdaptiveSamplingAttention(BaseModule):
 
     def __init__(self,
                  points=32,
-                 outpoints=16,
                  content_dim=64,
                  ):
         super(AdaptiveSamplingAttention, self).__init__()
         self.points = points
-        self.outpoints = outpoints
         self.content_dim = content_dim
         self.sampling_offset_generator = nn.Sequential(
             nn.Linear(content_dim, points * 3)
