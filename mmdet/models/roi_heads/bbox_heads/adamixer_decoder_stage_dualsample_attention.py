@@ -114,7 +114,7 @@ class AdaptiveSamplingAttention(BaseModule):
     @torch.no_grad()
     def init_weights(self):
 
-        super(AdaptiveSamplingMixing,self).init_weights()
+        super(AdaptiveSamplingAttention,self).init_weights()
         nn.init.zeros_(self.sampling_offset_generator[-1].weight)
         nn.init.zeros_(self.sampling_offset_generator[-1].bias)
 
@@ -148,7 +148,7 @@ class AdaptiveSamplingAttention(BaseModule):
         )
         if DEBUG:
             torch.save(
-                sample_points_xyz, 'demo/sample_xy_{}.pth'.format(AdaptiveSamplingMixing._DEBUG))
+                sample_points_xyz, 'demo/sample_xy_{}.pth'.format(AdaptiveSamplingAttention._DEBUG))
         B = sample_points_xyz.size(0)
         
         sample_points_xyz=sample_points_xyz.view(B, f_query, f_group, f_point, -1).permute(0,2,1,3,4).contiguous()
@@ -181,7 +181,7 @@ class AdaptiveSamplingAttention(BaseModule):
         query_feat = query_feat + sampled_feature
         return query_feat
 
-class AdaptiveSamplingMixingDualSample(nn.Module):
+class AdaptiveSamplingMixingAttentionSample(nn.Module):
     _DEBUG = 0
 
     def __init__(self,
@@ -191,7 +191,7 @@ class AdaptiveSamplingMixingDualSample(nn.Module):
                  content_dim=256,
                  feat_channels=None
                  ):
-        super(AdaptiveSamplingMixingDualSample , self).__init__()
+        super(AdaptiveSamplingMixingAttentionSample , self).__init__()
         self.in_points = in_points
         self.out_points = out_points
         self.n_groups = n_groups
@@ -212,7 +212,7 @@ class AdaptiveSamplingMixingDualSample(nn.Module):
             n_groups=self.n_groups,
         )
 
-        self.sampling_n_mixing_second = AdaptiveSamplingMixing(
+        self.sampling_n_mixing_second = AdaptiveSamplingAttention(
             content_dim=int(self.content_dim/n_groups),  # query dim
             points=16,
         )
@@ -259,7 +259,7 @@ class AdaptiveSamplingMixingDualSample(nn.Module):
 
         if DEBUG:
             torch.save(
-                sample_points_xyz, 'demo/sample_xy_{}.pth'.format(AdaptiveSamplingMixingDualSample._DEBUG))
+                sample_points_xyz, 'demo/sample_xy_{}.pth'.format(AdaptiveSamplingMixingAttentionSample._DEBUG))
 
         sampled_feature, _ = sampling_3d(sample_points_xyz, x,
                                          featmap_strides=featmap_strides,
@@ -276,8 +276,8 @@ class AdaptiveSamplingMixingDualSample(nn.Module):
 
         if DEBUG:
             torch.save(
-                sampled_feature, 'demo/sample_feature_{}.pth'.format(AdaptiveSamplingMixingDualSample._DEBUG))
-            AdaptiveSamplingMixingDualSample._DEBUG += 1
+                sampled_feature, 'demo/sample_feature_{}.pth'.format(AdaptiveSamplingMixingAttentionSample._DEBUG))
+            AdaptiveSamplingMixingAttentionSample._DEBUG += 1
 
         query_feat = self.adaptive_mixing(sampled_feature, query_feat)
         query_feat = self.norm(query_feat)
@@ -298,7 +298,7 @@ def position_embedding(token_xyzr, num_feats, temperature=10000):
 
 
 @HEADS.register_module()
-class AdaMixerDecoderStageDualSample(BBoxHead):
+class AdaMixerDecoderStageDualSampleAttention(BBoxHead):
     _DEBUG = -1
 
     def __init__(self,
@@ -320,7 +320,7 @@ class AdaMixerDecoderStageDualSample(BBoxHead):
                  **kwargs):
         assert init_cfg is None, 'To prevent abnormal initialization ' \
                                  'behavior, init_cfg is not allowed to be set'
-        super(AdaMixerDecoderStageDualSample, self).__init__(
+        super(AdaMixerDecoderStageDualSampleAttention, self).__init__(
             num_classes=num_classes,
             reg_decoded_bbox=True,
             reg_class_agnostic=True,
@@ -370,7 +370,7 @@ class AdaMixerDecoderStageDualSample(BBoxHead):
         self.n_groups = n_groups
         self.out_points = out_points
 
-        self.sampling_n_mixing = AdaptiveSamplingMixingDualSample(
+        self.sampling_n_mixing = AdaptiveSamplingMixingAttentionSample(
             content_dim=content_dim,  # query dim
             feat_channels=feat_channels,
             in_points=self.in_points,
@@ -382,7 +382,7 @@ class AdaMixerDecoderStageDualSample(BBoxHead):
 
     @torch.no_grad()
     def init_weights(self):
-        super(AdaMixerDecoderStageDualSample, self).init_weights()
+        super(AdaMixerDecoderStageDualSampleAttention, self).init_weights()
         for n, m in self.named_modules():
             if isinstance(m, nn.Linear):
                 m.reset_parameters()
@@ -407,7 +407,7 @@ class AdaMixerDecoderStageDualSample(BBoxHead):
                 featmap_strides):
         N, n_query = query_content.shape[:2]
 
-        AdaMixerDecoderStageDualSample._DEBUG += 1
+        AdaMixerDecoderStageDualSampleAttention._DEBUG += 1
 
         with torch.no_grad():
             rois = decode_box(query_xyzr)
