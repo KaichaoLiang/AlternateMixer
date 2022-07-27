@@ -88,6 +88,17 @@ def make_sample_points_secondstage(offset, num_group, xyz):
 
     return torch.cat([sample_yx, sample_lvl], dim=-1)
 
+def position_embedding_3d(token_xyz, num_feats, temperature=10000):
+    assert token_xyz.size(-1) == 3
+    term = token_xyz.new_tensor([1000, 1000, 1]).view(1, 1, -1)
+    token_xyz = token_xyz / term
+    dim_t = torch.arange(
+        num_feats, dtype=torch.float32, device=token_xyz.device)
+    dim_t = (temperature ** (2 * (dim_t // 2) / num_feats)).view(1, 1, 1, -1)
+    pos_x = token_xyz[..., None] / dim_t
+    pos_x = pos_x[:,:, 0,:].sin()+ pos_x[:,:, 1,:].cos()+pos_x[:,:, 2,:].sin()
+    pos_x = pos_x.flatten(2)
+    return pos_x
 
 class AdaptiveSamplingAttention(BaseModule):
     _DEBUG = 0
@@ -104,8 +115,8 @@ class AdaptiveSamplingAttention(BaseModule):
         self.sampling_offset_generator = nn.Sequential(
             nn.Linear(content_dim, points * 3)
         )
-        self.static_channel_mixing = nn.Linear(content_dim, content_dim)
-        self.static_spatial_mixing = nn.Linear(self.points, self.outpoints)
+
+        self.cross_attention = MultiheadAttention(content_dim, 2, 0.0, batch_first=True)
         self.projector = nn.Linear(content_dim*self.outpoints,content_dim)
         self.act = nn.ReLU(inplace=True)
     
@@ -167,18 +178,26 @@ class AdaptiveSamplingAttention(BaseModule):
         sampled_feature = sampled_feature.view(B, f_group, f_query, f_point, self.points, -1)
         sampled_feature = sampled_feature.permute(0,2,1,3,4,5).contiguous()
         sampled_feature = sampled_feature.view(B, f_query*f_group*f_point, self.points,-1)
+        
+        sample_points_xyz = sample_points_xyz.view(B, f_group, f_query, f_point, self.points, -1)
+        sample_points_xyz = sample_points_xyz.permute(0,2,1,3,4,5).contiguous()
+        sample_points_xyz = sample_points_xyz.view(B, f_query*f_group*f_point, self.points,-1)
+        sampled_pe = position_embedding_3d(sample_points_xyz.flatten(1,2), f)
+        sampled_pe = sampled_pe.view(B, f_query*f_group*f_point, self.points,-1)
+        sampled_feature = sampled_feature + sampled_pe
+        sampled_feature = sampled_feature.view(B*f_query*f_group*f_point,-1,f)
 
-        sampled_feature = self.static_channel_mixing(sampled_feature)
-        sampled_feature = F.layer_norm(sampled_feature, [sampled_feature.size(-2), sampled_feature.size(-1)])
-        sampled_feature = self.act(sampled_feature)
-        sampled_feature = self.static_spatial_mixing(sampled_feature.permute(0,1,3,2)).view(B, f_query*f_group*f_point, self.content_dim,self.outpoints)
-        sampled_feature = F.layer_norm(sampled_feature, [sampled_feature.size(-2), sampled_feature.size(-1)])
-        sampled_feature = self.act(sampled_feature)
 
-        sampled_feature = sampled_feature.flatten(2,3)
-        sampled_feature = self.projector(sampled_feature)
+        query_feat_pe = position_embedding_3d(query_feat,f)
+        query_feat_att = query_feat + query_feat_pe
+        query_feat_att = query_feat_att.view(B*f_query*f_group*f_point,1,f)
 
-        query_feat = query_feat + sampled_feature
+        query_feat_att = self.cross_attention(query=query_feat_att, key=sampled_feature, value=sampled_feature)
+
+        query_feat_att = query_feat_att.view(query_feat.size())
+        query_feat_att = F.layer_norm(query_feat_att,[query_feat_att.size(-1)])
+        query_feat_att = self.act(query_feat_att)
+        query_feat = query_feat + query_feat_att
         return query_feat
 
 class AdaptiveSamplingMixingAttentionSample(nn.Module):
