@@ -133,16 +133,17 @@ class CrossGCNDense(nn.Module):
             layer_weight = self.gcn_kernels[l](query_layer).view(B, N*G, self.feat_dim, self.feat_dim)
             
             #X*W
-            print('sample_points shape',sample_points.shape)
-            print('layer weight shape',layer_weight.shape)
+            print('FN layer')
             sample_points = torch.matmul(sample_points,layer_weight)
             query_layer = torch.matmul(query_layer.view(B, N*G, 1, -1),layer_weight).flatten(2,3)
             
             #D-1/2*X*W
+            print('pre weighting')
             query_layer = InvD_sqrt_query*query_layer
             sample_points = InvD_sqrt_feat*sample_points
             
             #A_hat*D-1/2*X*W
+            print('transpotation')
             adjacant_weight_topk_extend = adjacant_weight_topk.view(B, N*G, self.topk, 1).repeat(1, 1, 1, self.feat_dim)
             adjacant_index_topk_extend = adjacant_index_topk.view(B, N*G, self.topk, 1).repeat(1, 1, 1, self.feat_dim)
             
@@ -157,6 +158,7 @@ class CrossGCNDense(nn.Module):
             query_layer_update = query_layer_update + query_layer
 
             #D-1/2*A_hat*D-1/2*X*W
+            print('post weighting')
             query_layer = InvD_sqrt_query*query_layer_update
             sample_points = InvD_sqrt_feat*sample_points_update
         query = query+query_layer
