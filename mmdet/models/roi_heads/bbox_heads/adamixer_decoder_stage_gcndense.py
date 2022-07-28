@@ -35,6 +35,8 @@ def EuclideanDistances(a,b):
     sum_sq_b = torch.sum(sq_b,dim=-1).view(Bb, 1, Lb)
     bt = b.flip(0,2,1)
     #shape [batch, La, Lb]
+    print('shape a', a.shape)
+    print('shape b', bt.shape)
     return torch.sqrt(sum_sq_a+sum_sq_b-2*torch.matmul(a,bt))
 
 
