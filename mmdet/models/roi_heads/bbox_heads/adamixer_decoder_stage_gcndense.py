@@ -155,8 +155,10 @@ class CrossGCNDense(nn.Module):
             
             #A_hat*D-1/2*X*W
             print('transpotation')
+            adjacant_weight_topk_extend = adjacant_weight_topk.view(B, N*G, self.topk, 1).repeat(1, 1, 1, self.feat_dim)
+            adjacant_index_topk_extend = adjacant_index_topk.view(B, N*G, self.topk, 1).repeat(1, 1, 1, self.feat_dim)
             
-            #query_layer_aug = query_layer.view(B,N*G,1,self.feat_dim).repeat(1,1,self.topk,1)
+            query_layer_aug = query_layer.view(B,N*G,1,self.feat_dim).repeat(1,1,self.topk,1)
             sample_points_update = sample_points.new_zeros(B, N*G, N*G*P)
             sample_points_update.scatter_(dim=-2, index=adjacant_index_topk, src=adjacant_weight_topk)
             sample_points_update = sample_points_update.permute(0,2,1)
@@ -164,8 +166,7 @@ class CrossGCNDense(nn.Module):
             sample_points_update = sample_points_update.view(B,N*G,P,f)
             sample_points_update = sample_points_update + sample_points
             
-            adjacant_weight_topk_extend = adjacant_weight_topk.view(B, N*G, self.topk, 1).repeat(1, 1, 1, self.feat_dim)
-            adjacant_index_topk_extend = adjacant_index_topk.view(B, N*G, self.topk, 1).repeat(1, 1, 1, self.feat_dim)
+            
             sample_points_aug = sample_points.view(B,1,N*G*P,f).repeat(1,N*G,1,1)
             query_layer_update = torch.gather(sample_points_aug, dim=-2, index=adjacant_index_topk_extend)*adjacant_weight_topk_extend
             query_layer_update = torch.sum(query_layer_update,dim=-2)
