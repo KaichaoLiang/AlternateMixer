@@ -23,6 +23,21 @@ import os
 DEBUG = 'DEBUG' in os.environ
 
 
+def EuclideanDistances(a,b):
+    #a,b are three dimension tensors, [batch,la,f], [batch,lb,f]
+    Ba,La,Fa = a.size()
+    Bb,Lb,Fb = b.size()
+    assert Ba==Bb and Fa==Fb
+
+    sq_a = a**2
+    sum_sq_a = torch.sum(sq_a,dim=-1).view(Ba, La, 1)
+    sq_b = b**2
+    sum_sq_b = torch.sum(sq_b,dim=-1).view(Bb, 1, Lb)
+    bt = b.flip(0,2,1)
+    #shape [batch, La, Lb]
+    return torch.sqrt(sum_sq_a+sum_sq_b-2*a.mm(bt))
+
+
 def dprint(*args, **kwargs):
     import os
     if 'DEBUG' in os.environ:
@@ -80,7 +95,6 @@ class CrossGCNDense(nn.Module):
         self.n_groups = n_groups
         self.n_gcns = n_gcns
         self.sampled_points = sampled_points
-        self.connect_projector_l1 = nn.Linear(self.feat_dim*2,1)
         self.topk = topk
         self.act = nn.LeakyReLU(inplace=True)
         self.gcn_kernels = nn.ModuleList()
@@ -89,7 +103,6 @@ class CrossGCNDense(nn.Module):
     
     @torch.no_grad()
     def init_weights(self):
-        nn.init.kaiming_uniform_(self.connect_projector_l1.weight)
         for l in range(self.n_gcns):
             nn.init.kaiming_uniform_(self.gcn_kernels[l].weight)
     
@@ -102,20 +115,13 @@ class CrossGCNDense(nn.Module):
         #===================================
         #concat feat
         B, N, G, P, f = sample_points.size()
-        sample_points = sample_points.view(B, N*G, P, f)
+        sample_points = sample_points.view(B, N*G*P, f)
         print('all shape', B, N, G, P, f)
         assert f==self.feat_dim
         query = query.view(B,N,G,self.feat_dim).contiguous().view(B,N*G,self.feat_dim)
         
-        query_aug = query.view(B,N*G,1,self.feat_dim)
-        query_aug = query_aug.repeat(1,1,N*G*P,1)
-        sample_points_aug = sample_points.view(B,1,N*G*P,-1)
-        sample_points_aug = sample_points_aug.repeat(1,N*G,1,1)
-        cat_points = torch.cat([query_aug, sample_points_aug],dim=-1) #shape [B, N*G, N*G*P,f]
-
         #weight generation
-        adjacant_weight = self.connect_projector_l1(cat_points)
-        adjacant_weight = torch.sigmoid(adjacant_weight)
+        adjacant_weight = EuclideanDistances(query,sample_points)
         adjacant_weight = adjacant_weight.view(B, N*G, N*G*P) #[batchsize, num_query*n_groups, num_query*n_groups*n_points]
         adjacant_weight_topk, adjacant_index_topk = torch.topk(adjacant_weight,k=self.topk)  #[batchsize, num_query*n_groups, topk]
         
