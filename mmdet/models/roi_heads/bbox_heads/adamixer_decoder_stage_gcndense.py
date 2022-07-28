@@ -168,9 +168,10 @@ class CrossGCNDense(nn.Module):
             adjacant_index_topk_extend = adjacant_index_topk.view(B, N*G, self.topk, 1).repeat(1, 1, 1, self.feat_dim)
             sample_points_aug = sample_points.view(B,1,N*G*P,f).repeat(1,N*G,1,1)
             query_layer_update = torch.gather(sample_points_aug, dim=-2, index=adjacant_index_topk_extend)*adjacant_weight_topk_extend
-            query_layer_update = torch.sum(query_layer_update,dim=-1).view(B, N*G, self.feat_dim)
+            query_layer_update = torch.sum(query_layer_update,dim=-1)
             print('query update shape', query_layer_update.shape)
             print('query shape', query_layer.shape)
+            query_layer_update = query_layer_update.view(B, N*G, self.feat_dim)
             query_layer_update = query_layer_update + query_layer
 
             #D-1/2*A_hat*D-1/2*X*W
