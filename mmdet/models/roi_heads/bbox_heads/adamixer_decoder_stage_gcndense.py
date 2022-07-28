@@ -134,6 +134,7 @@ class CrossGCNDense(nn.Module):
         InvD_sqrt_query = torch.sqrt(1/(1+torch.sum(adjacant_weight_topk,-1).view(B,N*G,1)))#D_hat^-1/2^T
         InvD_sqrt_feat = torch.sqrt(1/(1+torch.sum(adjacant_weight_sparse,1).contiguous().view(B, N*G, P, 1))) #D_hat^-1/2
 
+        sample_points = sample_points.view(B,N*G,P,f)
         #===================================
         #GCN matrix calculation
         #===================================
