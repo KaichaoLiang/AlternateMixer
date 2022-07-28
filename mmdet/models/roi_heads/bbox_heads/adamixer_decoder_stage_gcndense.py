@@ -119,7 +119,7 @@ class CrossGCNDense(nn.Module):
         #concat feat
         B, N, G, P, f = sample_points.size()
         sample_points = sample_points.view(B, N*G*P, f)
-        print('all shape', B, N, G, P, f)
+        #print('all shape', B, N, G, P, f)
         assert f==self.feat_dim
         query = query.view(B,N,G,self.feat_dim).contiguous().view(B,N*G,self.feat_dim)
         
@@ -144,40 +144,40 @@ class CrossGCNDense(nn.Module):
             layer_weight = self.gcn_kernels[l](query_layer).view(B, N*G, self.feat_dim, self.feat_dim)
             
             #X*W
-            print('FN layer')
+            #print('FN layer')
             sample_points = torch.matmul(sample_points,layer_weight)
             query_layer = torch.matmul(query_layer.view(B, N*G, 1, -1),layer_weight).flatten(2,3)
             
             #D-1/2*X*W
-            print('pre weighting')
+            #print('pre weighting')
             query_layer = InvD_sqrt_query*query_layer
             sample_points = InvD_sqrt_feat*sample_points
             
             #A_hat*D-1/2*X*W
-            print('transpotation')
+            #print('transpotation')
             adjacant_weight_topk_extend = adjacant_weight_topk.view(B, N*G, self.topk, 1).repeat(1, 1, 1, self.feat_dim)
             adjacant_index_topk_extend = adjacant_index_topk.view(B, N*G, self.topk, 1).repeat(1, 1, 1, self.feat_dim)
             
             query_layer_aug = query_layer.view(B,N*G,1,self.feat_dim).repeat(1,1,self.topk,1)
             sample_points_update = sample_points.new_zeros(B, N*G, N*G*P, f)
-            print(query_layer_aug.shape)
-            print(sample_points_update.shape)
+            #print(query_layer_aug.shape)
+            #print(sample_points_update.shape)
             sample_points_update.scatter_(dim=-2, index=adjacant_index_topk_extend, src=adjacant_weight_topk_extend*query_layer_aug)
             sample_points_update = torch.sum(sample_points_update,dim=1)
             sample_points_update = sample_points_update.view(B,N*G,P,f)
             sample_points_update = sample_points_update + sample_points
             
-            print(sample_points_update)
+            #print(sample_points_update)
             sample_points_aug = sample_points.view(B,1,N*G*P,f).repeat(1,N*G,1,1)
             query_layer_update = torch.gather(sample_points_aug, dim=-2, index=adjacant_index_topk_extend)*adjacant_weight_topk_extend
             query_layer_update = torch.sum(query_layer_update,dim=-2)
-            print('query update shape', query_layer_update.shape)
-            print('query shape', query_layer.shape)
+            #print('query update shape', query_layer_update.shape)
+            #print('query shape', query_layer.shape)
             query_layer_update = query_layer_update.view(B, N*G, self.feat_dim)
             query_layer_update = query_layer_update + query_layer
 
             #D-1/2*A_hat*D-1/2*X*W
-            print('post weighting')
+            #print('post weighting')
             query_layer = InvD_sqrt_query*query_layer_update
             sample_points = InvD_sqrt_feat*sample_points_update
         query = query+query_layer
