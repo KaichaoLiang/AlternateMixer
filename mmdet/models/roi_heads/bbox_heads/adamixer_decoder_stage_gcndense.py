@@ -70,8 +70,8 @@ class CrossGCNDense(nn.Module):
     def __init__(self,
                  feat_dim=64,
                  connect_latent_dim=256,
-                 n_groups=4,
-                 n_gcns=2,
+                 n_groups=1,
+                 n_gcns=1,
                  topk=128,
                  sampled_points=32):
         super(CrossGCNDense, self).__init__()
@@ -175,7 +175,7 @@ class AdaptiveSamplingGCNDense(nn.Module):
     def __init__(self,
                  in_points=32,
                  out_points=128,
-                 n_groups=4,
+                 n_groups=1,
                  content_dim=256,
                  feat_channels=None
                  ):
@@ -191,7 +191,7 @@ class AdaptiveSamplingGCNDense(nn.Module):
         )
 
         self.norm = nn.LayerNorm(content_dim)
-        self.crossgcn = CrossGCNDense(feat_dim=int(self.content_dim//self.n_groups),n_groups=self.n_groups,n_gcns=2)
+        self.crossgcn = CrossGCNDense(feat_dim=int(self.content_dim//self.n_groups),n_groups=self.n_groups,n_gcns=1)
         self.init_weights()
 
     @torch.no_grad()
@@ -282,7 +282,7 @@ class AdaMixerDecoderGCNDenseStage(BBoxHead):
                  ffn_act_cfg=dict(type='ReLU', inplace=True),
                  in_points=32,
                  out_points=128,
-                 n_groups=4,
+                 n_groups=1,
                  loss_iou=dict(type='GIoULoss', loss_weight=2.0),
                  init_cfg=None,
                  **kwargs):
