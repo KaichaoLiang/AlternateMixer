@@ -33,7 +33,7 @@ def EuclideanDistances(a,b):
     sum_sq_a = torch.sum(sq_a,dim=-1).view(Ba, La, 1)
     sq_b = b**2
     sum_sq_b = torch.sum(sq_b,dim=-1).view(Bb, 1, Lb)
-    bt = b.flip(0,2,1)
+    bt = b.permute(0,2,1)
     #shape [batch, La, Lb]
     print('shape a', a.shape)
     print('shape b', bt.shape)
