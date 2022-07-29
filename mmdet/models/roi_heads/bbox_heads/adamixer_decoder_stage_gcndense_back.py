@@ -139,7 +139,7 @@ class CrossGCNDense(nn.Module):
         adjacant_index_topk = NGIndex*self.topk+PIndex
         adjacant_index_topk = adjacant_index_topk.to(adjacant_weight_topk.device).long()
 
-        adjacant_weight_sparse = adjacant_weight.new_zeros(adjacant_weight.size())
+        adjacant_weight_sparse = adjacant_weight.new_zeros(B, N*G, N*G*self.topk)
         adjacant_weight_sparse = adjacant_weight_sparse.scatter_(dim=-1,index=adjacant_index_topk,src=adjacant_weight_topk)#[batchsize, num_query*n_groups, num_query*n_groups*n_points]
         InvD_sqrt_query = torch.sqrt(1/(1+torch.sum(adjacant_weight_topk,-1).view(B,N*G,1)))#D_hat^-1/2^T
         InvD_sqrt_feat = torch.sqrt(1/(1+torch.sum(adjacant_weight_sparse,1).contiguous().view(B, N*G, P, 1))) #D_hat^-1/2
