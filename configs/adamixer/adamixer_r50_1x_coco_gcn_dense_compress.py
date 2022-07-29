@@ -81,7 +81,7 @@ in_points_list = [32, ] * num_stages
 out_patterns_list = [128, ] * num_stages
 
 # G for the mixer grouping in the paper. Please distinguishe it from num_heads in MHSA in this codebase.
-n_group_list = [1, ] * num_stages
+n_group_list = [4, ] * num_stages
 
 model = dict(
     type='QueryBased',

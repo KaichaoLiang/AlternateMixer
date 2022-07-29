@@ -85,7 +85,7 @@ class CrossGCNDense(nn.Module):
     def __init__(self,
                  feat_dim=64,
                  connect_latent_dim=256,
-                 n_groups=1,
+                 n_groups=4,
                  n_gcns=1,
                  topk=128,
                  sampled_points=32):
@@ -179,7 +179,7 @@ class AdaptiveSamplingGCNDense(nn.Module):
     def __init__(self,
                  in_points=32,
                  out_points=128,
-                 n_groups=1,
+                 n_groups=4,
                  content_dim=256,
                  feat_channels=None
                  ):
@@ -286,7 +286,7 @@ class AdaMixerDecoderGCNDenseCompressStage(BBoxHead):
                  ffn_act_cfg=dict(type='ReLU', inplace=True),
                  in_points=32,
                  out_points=128,
-                 n_groups=1,
+                 n_groups=4,
                  loss_iou=dict(type='GIoULoss', loss_weight=2.0),
                  init_cfg=None,
                  **kwargs):
