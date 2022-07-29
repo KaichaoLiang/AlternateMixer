@@ -96,6 +96,9 @@ class CrossGCNDense(nn.Module):
         self.n_gcns = n_gcns
         self.sampled_points = sampled_points
         self.topk = topk
+        
+        self.connect_projector_l1 = nn.Linear(self.feat_dim*2,connect_latent_dim)
+        self.connect_projector_l2 = nn.Linear(connect_latent_dim,1)
         self.act = nn.LeakyReLU(inplace=True)
         self.gcn_kernels = nn.ModuleList()
         for l in range(self.n_gcns):
@@ -103,6 +106,8 @@ class CrossGCNDense(nn.Module):
     
     @torch.no_grad()
     def init_weights(self):
+        nn.init.kaiming_uniform_(self.connect_projector_l1.weight)
+        nn.init.kaiming_uniform_(self.connect_projector_l2.weight)
         for l in range(self.n_gcns):
             nn.init.kaiming_uniform_(self.gcn_kernels[l].weight)
     
