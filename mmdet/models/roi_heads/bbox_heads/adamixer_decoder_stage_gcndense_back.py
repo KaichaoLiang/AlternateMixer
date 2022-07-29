@@ -135,7 +135,7 @@ class CrossGCNDense(nn.Module):
         adjacant_weight_topk = adjacant_weight.view(B, N*G, self.topk) #[batchsize, num_query*n_groups, n_points, 1]
         
         NGIndex = torch.linspace(0, N*G-1, N*G).view(1,N*G,1).repeat(B,1,1)
-        PIndex = torch.linspace(0,self.topk-1,self.topk-1).view(1,1,self.topk).repeat(B,1,1)
+        PIndex = torch.linspace(0,self.topk-1,self.topk).view(1,1,self.topk).repeat(B,1,1)
         adjacant_index_topk = NGIndex*self.topk+PIndex
         adjacant_index_topk = adjacant_index_topk.to(adjacant_weight_topk.device).long()
 
