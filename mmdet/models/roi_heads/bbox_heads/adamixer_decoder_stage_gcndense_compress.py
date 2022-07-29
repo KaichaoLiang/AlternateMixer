@@ -116,7 +116,7 @@ class CrossGCNDense(nn.Module):
         #concat feat
         B, N, G, P, f = sample_points.size()
         sample_points = sample_points.view(B, N*G*P, f)
-        #print('all shape', B, N, G, P, f)
+        print('all shape', B, N, G, P, f)
         assert f==self.feat_dim
         query = query.view(B,N,G,self.feat_dim).contiguous().view(B,N*G,self.feat_dim)
         
