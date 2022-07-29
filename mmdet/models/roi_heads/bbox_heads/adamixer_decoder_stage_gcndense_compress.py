@@ -291,7 +291,7 @@ class AdaMixerDecoderGCNDenseCompressStage(BBoxHead):
                  **kwargs):
         assert init_cfg is None, 'To prevent abnormal initialization ' \
                                  'behavior, init_cfg is not allowed to be set'
-        super(AdaMixerDecoderGCNDenseStage, self).__init__(
+        super(AdaMixerDecoderGCNDenseCompressStage, self).__init__(
             num_classes=num_classes,
             reg_decoded_bbox=True,
             reg_class_agnostic=True,
@@ -353,7 +353,7 @@ class AdaMixerDecoderGCNDenseCompressStage(BBoxHead):
 
     @torch.no_grad()
     def init_weights(self):
-        super(AdaMixerDecoderGCNDenseStage, self).init_weights()
+        super(AdaMixerDecoderGCNDenseCompressStage, self).init_weights()
         for n, m in self.named_modules():
             if isinstance(m, nn.Linear):
                 m.reset_parameters()
@@ -378,7 +378,7 @@ class AdaMixerDecoderGCNDenseCompressStage(BBoxHead):
                 featmap_strides):
         N, n_query = query_content.shape[:2]
 
-        AdaMixerDecoderGCNDenseStage._DEBUG += 1
+        AdaMixerDecoderGCNDenseCompressStage._DEBUG += 1
 
         with torch.no_grad():
             rois = decode_box(query_xyzr)
