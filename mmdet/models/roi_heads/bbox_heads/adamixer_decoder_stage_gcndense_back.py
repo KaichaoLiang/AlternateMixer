@@ -128,11 +128,16 @@ class CrossGCNDense(nn.Module):
         adjacant_weight = self.connect_projector_l2(adjacant_weight)
         adjacant_weight = torch.sigmoid(adjacant_weight)
         adjacant_weight_topk = adjacant_weight.view(B, N*G, self.topk) #[batchsize, num_query*n_groups, n_points, 1]
+        
         NGIndex = torch.linspace(0, N*G-1, N*G).view(1,N*G,1).repeat(B,1,1)
         PIndex = torch.linspace(0,self.topk-1,self.topk-1).view(1,1,self.topk).repeat(B,1,1)
-        adjacant_weight_topk = NGIndex*self.topk+PIndex
-        adjacant_weight_topk = adjacant_weight_topk.to(adjacant_weight_topk.device).long()
+        adjacant_index_topk = NGIndex*self.topk+PIndex
+        adjacant_index_topk = adjacant_index_topk.to(adjacant_weight_topk.device).long()
 
+        adjacant_weight_sparse = adjacant_weight.new_zeros(adjacant_weight.size())
+        adjacant_weight_sparse = adjacant_weight_sparse.scatter_(dim=-1,index=adjacant_index_topk,src=adjacant_weight_topk)#[batchsize, num_query*n_groups, num_query*n_groups*n_points]
+        InvD_sqrt_query = torch.sqrt(1/(1+torch.sum(adjacant_weight_topk,-1).view(B,N*G,1)))#D_hat^-1/2^T
+        InvD_sqrt_feat = torch.sqrt(1/(1+torch.sum(adjacant_weight_sparse,1).contiguous().view(B, N*G, P, 1))) #D_hat^-1/2
         #===================================
         #GCN matrix calculation
         #===================================
@@ -271,7 +276,7 @@ def position_embedding(token_xyzr, num_feats, temperature=10000):
 
 
 @HEADS.register_module()
-class AdaMixerDecoderGCNDenseCompressStage(BBoxHead):
+class AdaMixerDecoderGCNDenseBackStage(BBoxHead):
     _DEBUG = -1
 
     def __init__(self,
@@ -293,7 +298,7 @@ class AdaMixerDecoderGCNDenseCompressStage(BBoxHead):
                  **kwargs):
         assert init_cfg is None, 'To prevent abnormal initialization ' \
                                  'behavior, init_cfg is not allowed to be set'
-        super(AdaMixerDecoderGCNDenseCompressStage, self).__init__(
+        super(AdaMixerDecoderGCNDenseBackStage, self).__init__(
             num_classes=num_classes,
             reg_decoded_bbox=True,
             reg_class_agnostic=True,
@@ -355,7 +360,7 @@ class AdaMixerDecoderGCNDenseCompressStage(BBoxHead):
 
     @torch.no_grad()
     def init_weights(self):
-        super(AdaMixerDecoderGCNDenseCompressStage, self).init_weights()
+        super(AdaMixerDecoderGCNDenseBackStage, self).init_weights()
         for n, m in self.named_modules():
             if isinstance(m, nn.Linear):
                 m.reset_parameters()
@@ -380,7 +385,7 @@ class AdaMixerDecoderGCNDenseCompressStage(BBoxHead):
                 featmap_strides):
         N, n_query = query_content.shape[:2]
 
-        AdaMixerDecoderGCNDenseCompressStage._DEBUG += 1
+        AdaMixerDecoderGCNDenseBackStage._DEBUG += 1
 
         with torch.no_grad():
             rois = decode_box(query_xyzr)
