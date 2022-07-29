@@ -143,7 +143,7 @@ class CrossGCNDense(nn.Module):
             #X*W
             #print('FN layer')
             sample_points = torch.matmul(sample_points,layer_weight)
-            query_layer = torch.matmul(query_layer,layer_weight)
+            query_layer = torch.matmul(query_layer.view(B, N*G, 1, -1),layer_weight).flatten(2,3)
             
             #D-1/2*X*W
             #print('pre weighting')
