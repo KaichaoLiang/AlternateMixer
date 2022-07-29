@@ -85,9 +85,9 @@ class CrossGCNDense(nn.Module):
     def __init__(self,
                  feat_dim=64,
                  connect_latent_dim=256,
-                 n_groups=1,
+                 n_groups=4,
                  n_gcns=1,
-                 topk=128,
+                 topk=32,
                  sampled_points=32):
         super(CrossGCNDense, self).__init__()
         self.feat_dim = feat_dim
@@ -113,26 +113,26 @@ class CrossGCNDense(nn.Module):
         #===================================
         #calculate adjacent matrix
         #===================================
-        #concat feat
         B, N, G, P, f = sample_points.size()
-        sample_points = sample_points.view(B, N*G*P, f)
-        #print('all shape', B, N, G, P, f)
         assert f==self.feat_dim
-        query = query.view(B,N,G,self.feat_dim).contiguous().view(B,N*G,self.feat_dim)
+        query = query.view(B,N,G,self.feat_dim).contiguous()
+        query = query.view(B,N*G,1,self.feat_dim)
+        query_aug = query.repeat(1,1,P,1)
+        sample_points = sample_points.view(query_aug.size())
+        cat_points = torch.cat([query_aug, sample_points],dim=-1)
         
         #weight generation
-        adjacant_weight = torch.exp(-EuclideanDistances(query,sample_points))
-        adjacant_weight = adjacant_weight.view(B, N*G, N*G*P) #[batchsize, num_query*n_groups, num_query*n_groups*n_points]
-        adjacant_weight_topk, adjacant_index_topk = torch.topk(adjacant_weight,k=self.topk)  #[batchsize, num_query*n_groups, topk]
-        
-        adjacant_weight_sparse = adjacant_weight.new_zeros(adjacant_weight.size())
-        adjacant_weight_sparse = adjacant_weight_sparse.scatter_(dim=-1,index=adjacant_index_topk,src=adjacant_weight_topk)#[batchsize, num_query*n_groups, num_query*n_groups*n_points]
+        adjacant_weight = self.connect_projector_l1(cat_points)
+        adjacant_weight = torch.layer_norm(adjacant_weight,[adjacant_weight.size(-1)])
+        adjacant_weight = self.act(adjacant_weight)
+        adjacant_weight = self.connect_projector_l2(adjacant_weight)
+        adjacant_weight = torch.sigmoid(adjacant_weight)
+        adjacant_weight_topk = adjacant_weight.view(B, N*G, self.topk) #[batchsize, num_query*n_groups, n_points, 1]
+        NGIndex = torch.linspace(0, N*G-1, N*G).view(1,N*G,1).repeat(B,1,1)
+        PIndex = torch.linspace(0,self.topk-1,self.topk-1).view(1,1,self.topk).repeat(B,1,1)
+        adjacant_weight_topk = NGIndex*self.topk+PIndex
+        adjacant_weight_topk = adjacant_weight_topk.to(adjacant_weight_topk.device).long()
 
-        InvD_sqrt_query = torch.sqrt(1/(1+torch.sum(adjacant_weight_topk,-1).view(B,N*G,1)))#D_hat^-1/2^T
-        InvD_sqrt_feat = torch.sqrt(1/(1+torch.sum(adjacant_weight_sparse,1).contiguous().view(B, N*G, P, 1))) #D_hat^-1/2
-
-        sample_points = sample_points.view(B,N*G,P,f)
-        
         #===================================
         #GCN matrix calculation
         #===================================
@@ -152,32 +152,24 @@ class CrossGCNDense(nn.Module):
             sample_points = InvD_sqrt_feat*sample_points
             
             #A_hat*D-1/2*X*W
-            #print('transpotation')
-            adjacant_weight_topk_extend = adjacant_weight_topk.view(B, N*G, self.topk, 1).repeat(1, 1, 1, self.feat_dim)
-            adjacant_index_topk_extend = adjacant_index_topk.view(B, N*G, self.topk, 1).repeat(1, 1, 1, self.feat_dim)
-            
-            query_layer_aug = query_layer.view(B,N*G,1,self.feat_dim).repeat(1,1,self.topk,1)
-            sample_points_update = sample_points.new_zeros(B, N*G, N*G*P, f)
-            #print(query_layer_aug.shape)
-            #print(sample_points_update.shape)
-            sample_points_update.scatter_(dim=-2, index=adjacant_index_topk_extend, src=adjacant_weight_topk_extend*query_layer_aug)
-            sample_points_update = torch.sum(sample_points_update,dim=1)
-            sample_points_update = sample_points_update.view(B,N*G,P,f)
+            sample_points_update = sample_points.new_zeros(B, N*G, N*G*P)
+            sample_points_update.scatter_(dim=-1, index=adjacant_index_topk, src=adjacant_weight_topk)
+            sample_points_update = sample_points_update.permute(0,2,1)
+            sample_points_update = torch.matmul(sample_points_update,query_layer)
+            sample_points_update = sample_points_update.view(B, N*G, P,self.feat_dim)
             sample_points_update = sample_points_update + sample_points
             
-            #print(sample_points_update)
-            sample_points_aug = sample_points.view(B,1,N*G*P,f).repeat(1,N*G,1,1)
-            query_layer_update = torch.gather(sample_points_aug, dim=-2, index=adjacant_index_topk_extend)*adjacant_weight_topk_extend
-            query_layer_update = torch.sum(query_layer_update,dim=-2)
-            #print('query update shape', query_layer_update.shape)
-            #print('query shape', query_layer.shape)
-            query_layer_update = query_layer_update.view(B, N*G, self.feat_dim)
+            adjacant_index_topk_extend = adjacant_index_topk.view(B,N*G*self.topk,1).repeat(1,1,self.feat_dim)
+            adjacant_weight_topk_extend = adjacant_weight_topk.view(B,N*G*self.topk,1).repeat(1,1,self.feat_dim)
+            query_layer_update = torch.gather(sample_points.view(B,N*G*P,self.feat_dim), dim=-2, index=adjacant_index_topk_extend)*adjacant_weight_topk_extend
+            query_layer_update = query_layer_update.view(B, N*G, self.topk, self.feat_dim)
+            query_layer_update = torch.sum(query_layer_update,dim=-2).view(B, N*G, self.feat_dim)
             query_layer_update = query_layer_update + query_layer
 
             #D-1/2*A_hat*D-1/2*X*W
-            #print('post weighting')
             query_layer = InvD_sqrt_query*query_layer_update
             sample_points = InvD_sqrt_feat*sample_points_update
+
         query = query+query_layer
         query = query.view(B, N, G*self.feat_dim)
         return query
@@ -188,7 +180,7 @@ class AdaptiveSamplingGCNDense(nn.Module):
     def __init__(self,
                  in_points=32,
                  out_points=128,
-                 n_groups=1,
+                 n_groups=4,
                  content_dim=256,
                  feat_channels=None
                  ):
@@ -279,7 +271,7 @@ def position_embedding(token_xyzr, num_feats, temperature=10000):
 
 
 @HEADS.register_module()
-class AdaMixerDecoderGCNDenseStage(BBoxHead):
+class AdaMixerDecoderGCNDenseCompressStage(BBoxHead):
     _DEBUG = -1
 
     def __init__(self,
@@ -295,13 +287,13 @@ class AdaMixerDecoderGCNDenseStage(BBoxHead):
                  ffn_act_cfg=dict(type='ReLU', inplace=True),
                  in_points=32,
                  out_points=128,
-                 n_groups=1,
+                 n_groups=4,
                  loss_iou=dict(type='GIoULoss', loss_weight=2.0),
                  init_cfg=None,
                  **kwargs):
         assert init_cfg is None, 'To prevent abnormal initialization ' \
                                  'behavior, init_cfg is not allowed to be set'
-        super(AdaMixerDecoderGCNDenseStage, self).__init__(
+        super(AdaMixerDecoderGCNDenseCompressStage, self).__init__(
             num_classes=num_classes,
             reg_decoded_bbox=True,
             reg_class_agnostic=True,
@@ -363,7 +355,7 @@ class AdaMixerDecoderGCNDenseStage(BBoxHead):
 
     @torch.no_grad()
     def init_weights(self):
-        super(AdaMixerDecoderGCNDenseStage, self).init_weights()
+        super(AdaMixerDecoderGCNDenseCompressStage, self).init_weights()
         for n, m in self.named_modules():
             if isinstance(m, nn.Linear):
                 m.reset_parameters()
@@ -388,7 +380,7 @@ class AdaMixerDecoderGCNDenseStage(BBoxHead):
                 featmap_strides):
         N, n_query = query_content.shape[:2]
 
-        AdaMixerDecoderGCNDenseStage._DEBUG += 1
+        AdaMixerDecoderGCNDenseCompressStage._DEBUG += 1
 
         with torch.no_grad():
             rois = decode_box(query_xyzr)
