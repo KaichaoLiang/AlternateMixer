@@ -155,6 +155,7 @@ class CrossGCNDense(nn.Module):
             sample_points_update.scatter_(dim=-1, index=adjacant_index_topk, src=adjacant_weight_topk)
             sample_points_update = sample_points_update.permute(0,2,1)
             sample_points_update = torch.matmul(sample_points_update,query_layer)
+            sample_points_update = sample_points_update.view(B, N*G, P,self.feat_dim)
             sample_points_update = sample_points_update + sample_points
             
             adjacant_index_topk_extend = adjacant_index_topk.view(B,N*G*self.topk,1).repeat(1,1,self.feat_dim)
