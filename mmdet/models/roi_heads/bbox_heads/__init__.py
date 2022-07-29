@@ -29,5 +29,5 @@ __all__ = [
     ,'AlternateMixerDecoderStage','AdaMixerDecoderStageCat', 'AdaMixerDecoderStageCatPe'
     ,'AdaMixerDecoderStageCatPeFFN','AdaMixerDecoderStageCatPeFFNHeadTail','AdaMixerDecoderStageDualSample'
     ,'AdaMixerDecoderGCNStage','AdaMixerDecoderGCNDenseStage','AdaMixerDecoderStageDualSampleAttention'
-    ,'AdaMixerDecoderGCNDenseCompressStage','AdaMixerDecoderGCNDenseBackStage
+    ,'AdaMixerDecoderGCNDenseCompressStage','AdaMixerDecoderGCNDenseBackStage'
 ]
