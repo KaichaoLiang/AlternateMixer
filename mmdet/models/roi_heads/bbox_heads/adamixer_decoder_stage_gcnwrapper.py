@@ -149,7 +149,7 @@ class CrossGCN(nn.Module):
         query_layer = torch.layer_norm(query_layer, [query_layer.size(-2), query_layer.size(-1)])
         query_layer = self.act(query_layer)
 
-        query_res = query_res.view(B, N,G,self.outpoints,f).contiguous()
+        query_res = query_layer.view(B, N,G,self.outpoints,f).contiguous()
         query_res = query_res.view(B,N,G*self.outpoints*f)
         query_res = self.connect_projector_l2(query_res)
 
