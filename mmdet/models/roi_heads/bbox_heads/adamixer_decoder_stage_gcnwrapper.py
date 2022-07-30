@@ -276,7 +276,7 @@ class AdaMixerDecoderGCNWrapperStage(BBoxHead):
                  **kwargs):
         assert init_cfg is None, 'To prevent abnormal initialization ' \
                                  'behavior, init_cfg is not allowed to be set'
-        super(AdaMixerDecoderGCNStage, self).__init__(
+        super(AdaMixerDecoderGCNWrapperStage, self).__init__(
             num_classes=num_classes,
             reg_decoded_bbox=True,
             reg_class_agnostic=True,
