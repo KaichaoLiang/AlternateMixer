@@ -96,8 +96,6 @@ class CrossGCN(nn.Module):
         nn.init.kaiming_uniform_(self.connect_projector_l2.weight)
         nn.init.kaiming_uniform_(self.weight_projector.weight)
         nn.init.kaiming_uniform_(self.matrix_projector.weight)
-        for l in range(self.n_gcns):
-            nn.init.kaiming_uniform_(self.gcn_kernels[l].weight)
     
     def forward(self, sample_points, query):
         #query shape [batchsize, num_query, n_groups*feats]
