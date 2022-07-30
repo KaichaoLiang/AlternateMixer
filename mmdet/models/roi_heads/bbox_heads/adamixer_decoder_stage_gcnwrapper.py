@@ -112,6 +112,7 @@ class CrossGCN(nn.Module):
         adjacant_weight = self.matrix_projector(query) 
         adjacant_weight = adjacant_weight.view(B,N,G,self.sampled_points,self.outpoints).contiguous()
         adjacant_weight = adjacant_weight.view(B,N*G,self.sampled_points,self.outpoints)
+        adjacant_weight = F.sigmoid(adjacant_weight)
         InvD_sqrt_trans = torch.sqrt(1/(1+torch.sum(adjacant_weight,-2))).view(B,N*G,self.outpoints)#D_hat^-1/2^T
         InvD_sqrt_side = torch.sqrt(1/(1+torch.sum(adjacant_weight,-1))).view(B,N*G,self.sampled_points)
 
