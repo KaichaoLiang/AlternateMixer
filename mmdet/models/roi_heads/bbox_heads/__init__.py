@@ -10,6 +10,8 @@ from .adamixer_decoder_stage import AdaMixerDecoderStage
 from .adamixer_decoder_stage_gcn import AdaMixerDecoderGCNStage
 from .adamixer_decoder_stage_gcnwrapper import AdaMixerDecoderGCNWrapperStage
 from .adamixer_decoder_stage_gcnwrapper2 import AdaMixerDecoderGCNWrapperStage2
+from .adamixer_decoder_stage_gcnwrapper3 import AdaMixerDecoderGCNWrapperStage3
+
 from .adamixer_decoder_stage_gcndense import AdaMixerDecoderGCNDenseStage
 from .adamixer_decoder_stage_gcndense_compress import AdaMixerDecoderGCNDenseCompressStage
 from .adamixer_decoder_stage_gcndense_back import AdaMixerDecoderGCNDenseBackStage
@@ -32,4 +34,5 @@ __all__ = [
     ,'AdaMixerDecoderStageCatPeFFN','AdaMixerDecoderStageCatPeFFNHeadTail','AdaMixerDecoderStageDualSample'
     ,'AdaMixerDecoderGCNStage','AdaMixerDecoderGCNDenseStage','AdaMixerDecoderStageDualSampleAttention'
     ,'AdaMixerDecoderGCNDenseCompressStage','AdaMixerDecoderGCNDenseBackStage','AdaMixerDecoderGCNWrapperStage','AdaMixerDecoderGCNWrapperStage2'
+    ,'AdaMixerDecoderGCNWrapperStage3'
 ]
