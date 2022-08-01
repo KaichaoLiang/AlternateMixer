@@ -124,7 +124,7 @@ class CrossGCN(nn.Module):
         #X*W
         sample_points = sample_points.view(B,N*G,self.sampled_points, f)
         out = torch.matmul(sample_points,layer_weight)
-        out = torch.layer_norm(out, [out.size(-2), out.size(-1)])
+        out = F.layer_norm(out, [out.size(-2), out.size(-1)])
         out = self.act(out)
 
         #D^-1/2*X*W
@@ -132,7 +132,7 @@ class CrossGCN(nn.Module):
         query_layer = torch.matmul(adjacant_weight.permute(0,1,3,2),out)
         
         #D^-1/2*A_hat*D^-1/2*X*W
-        query_layer = torch.layer_norm(query_layer, [query_layer.size(-2), query_layer.size(-1)])
+        query_layer = F.layer_norm(query_layer, [query_layer.size(-2), query_layer.size(-1)])
         query_layer = self.act(query_layer)
 
         query_res = query_layer.view(B, N,G,self.outpoints,f).contiguous()
@@ -261,7 +261,7 @@ class AdaMixerDecoderGCNWrapperStage3(BBoxHead):
                  **kwargs):
         assert init_cfg is None, 'To prevent abnormal initialization ' \
                                  'behavior, init_cfg is not allowed to be set'
-        super(AdaMixerDecoderGCNWrapperStage2, self).__init__(
+        super(AdaMixerDecoderGCNWrapperStage3, self).__init__(
             num_classes=num_classes,
             reg_decoded_bbox=True,
             reg_class_agnostic=True,
@@ -323,7 +323,7 @@ class AdaMixerDecoderGCNWrapperStage3(BBoxHead):
 
     @torch.no_grad()
     def init_weights(self):
-        super(AdaMixerDecoderGCNWrapperStage2, self).init_weights()
+        super(AdaMixerDecoderGCNWrapperStage3, self).init_weights()
         for n, m in self.named_modules():
             if isinstance(m, nn.Linear):
                 m.reset_parameters()
@@ -348,7 +348,7 @@ class AdaMixerDecoderGCNWrapperStage3(BBoxHead):
                 featmap_strides):
         N, n_query = query_content.shape[:2]
 
-        AdaMixerDecoderGCNWrapperStage2._DEBUG += 1
+        AdaMixerDecoderGCNWrapperStage3._DEBUG += 1
 
         with torch.no_grad():
             rois = decode_box(query_xyzr)
